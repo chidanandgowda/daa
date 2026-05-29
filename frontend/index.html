@@ -3,18 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Cold-Chain Logistics Optimizer — Interactive graph-based route planning and cargo optimization for cold-chain logistics using advanced algorithms.">
-    <title>Cold-Chain Logistics Optimizer | DAA Project</title>
+    <meta name="description" content="Cold-Chain Logistics Optimizer — DAA Project for RVCE. Optimizes cold-chain delivery using Held-Karp TSP, Dijkstra, A*, and 0/1 Knapsack algorithms working together.">
+    <title>Cold-Chain Logistics Optimizer | RVCE DAA Project</title>
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
     <!-- Cytoscape.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
 
-    <!-- Stylesheets -->
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -23,171 +22,165 @@
         <div class="header-content">
             <div class="logo-group">
                 <div class="logo-icon">
-                    <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="16" cy="16" r="14" stroke="url(#grad1)" stroke-width="2.5"/>
-                        <path d="M10 20L16 8L22 20" stroke="url(#grad1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        <circle cx="16" cy="14" r="2" fill="#06d6a0"/>
-                        <circle cx="11" cy="20" r="1.5" fill="#118ab2"/>
-                        <circle cx="21" cy="20" r="1.5" fill="#ef476f"/>
-                        <defs>
-                            <linearGradient id="grad1" x1="0" y1="0" x2="32" y2="32">
-                                <stop stop-color="#06d6a0"/>
-                                <stop offset="1" stop-color="#118ab2"/>
-                            </linearGradient>
-                        </defs>
+                    <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="2" y="2" width="32" height="32" rx="8" fill="#EEF2FF" stroke="#6366F1" stroke-width="1.5"/>
+                        <path d="M11 24L18 10L25 24" stroke="#6366F1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="18" cy="16" r="2" fill="#6366F1"/>
+                        <circle cx="12" cy="24" r="1.8" fill="#10B981"/>
+                        <circle cx="24" cy="24" r="1.8" fill="#F59E0B"/>
                     </svg>
                 </div>
                 <div>
-                    <h1>Cold-Chain Optimizer</h1>
-                    <p class="subtitle">DAA Graph Algorithm Visualizer</p>
+                    <h1>Cold-Chain Logistics Optimizer</h1>
+                    <p class="subtitle">RVCE — Design and Analysis of Algorithms</p>
                 </div>
             </div>
-            <div class="header-badges">
-                <span class="badge badge-green" id="api-status">● API Connected</span>
-                <span class="badge badge-blue">12 Cities</span>
-                <span class="badge badge-purple">5 Algorithms</span>
+            <div class="header-right">
+                <span class="status-badge" id="api-status">● Connected</span>
             </div>
         </div>
     </header>
 
     <!-- ── Main Layout ────────────────────────────────────────────────── -->
     <main id="app-main">
-        <!-- Sidebar -->
+        <!-- Left Panel: Controls -->
         <aside id="sidebar">
-            <!-- Algorithm Selector -->
-            <div class="panel" id="algo-panel">
-                <h2 class="panel-title">
-                    <span class="panel-icon">⚡</span>
-                    Algorithm
-                </h2>
-                <div class="algo-grid" id="algo-grid">
-                    <button class="algo-btn active" data-algo="held-karp" id="btn-held-karp">
-                        <span class="algo-tag exact">Exact</span>
-                        <span class="algo-name">Held-Karp TSP</span>
-                        <span class="algo-complexity">O(n²·2ⁿ)</span>
-                    </button>
-                    <button class="algo-btn" data-algo="nearest-neighbour" id="btn-nearest-neighbour">
-                        <span class="algo-tag heuristic">Heuristic</span>
-                        <span class="algo-name">Nearest Neighbour</span>
-                        <span class="algo-complexity">O(n²)</span>
-                    </button>
-                    <button class="algo-btn" data-algo="dijkstra" id="btn-dijkstra">
-                        <span class="algo-tag shortest">Shortest</span>
-                        <span class="algo-name">Dijkstra</span>
-                        <span class="algo-complexity">O((V+E)log V)</span>
-                    </button>
-                    <button class="algo-btn" data-algo="astar" id="btn-astar">
-                        <span class="algo-tag informed">Informed</span>
-                        <span class="algo-name">A* Search</span>
-                        <span class="algo-complexity">O(E·log V)</span>
-                    </button>
-                    <button class="algo-btn" data-algo="knapsack" id="btn-knapsack">
-                        <span class="algo-tag dp">DP</span>
-                        <span class="algo-name">0/1 Knapsack</span>
-                        <span class="algo-complexity">O(n·W)</span>
-                    </button>
+            <!-- Pipeline Header -->
+            <div class="panel pipeline-header-panel">
+                <h2 class="panel-title">Optimization Pipeline</h2>
+                <p class="panel-desc">All five algorithms work together to solve the cold-chain logistics problem end-to-end.</p>
+                <div class="pipeline-flow">
+                    <span class="pipe-step active" data-step="1">❶ Knapsack</span>
+                    <span class="pipe-arrow">→</span>
+                    <span class="pipe-step" data-step="2">❷ TSP</span>
+                    <span class="pipe-arrow">→</span>
+                    <span class="pipe-step" data-step="3">❸ Dijkstra</span>
+                    <span class="pipe-arrow">→</span>
+                    <span class="pipe-step" data-step="4">❹ A*</span>
                 </div>
             </div>
 
-            <!-- Parameters Panel -->
-            <div class="panel" id="params-panel">
-                <h2 class="panel-title">
-                    <span class="panel-icon">⚙️</span>
-                    Parameters
-                </h2>
-                <div id="params-container">
-                    <!-- TSP params (default) -->
-                    <div class="param-group" id="params-tsp">
-                        <label class="param-label" for="tsp-start">Start City</label>
-                        <select class="param-select" id="tsp-start"></select>
+            <!-- Step 1: Cargo Configuration -->
+            <div class="panel" id="panel-knapsack">
+                <div class="step-header">
+                    <span class="step-number">1</span>
+                    <div>
+                        <h3 class="step-title">Cargo Load Balancing</h3>
+                        <p class="step-algo">0/1 Knapsack DP — O(n·W)</p>
                     </div>
-                    <!-- Dijkstra / A* params -->
-                    <div class="param-group hidden" id="params-path">
-                        <label class="param-label" for="path-source">Source City</label>
-                        <select class="param-select" id="path-source"></select>
-                        <label class="param-label" for="path-dest">Destination City</label>
-                        <select class="param-select" id="path-dest"></select>
+                </div>
+                <div class="param-group">
+                    <label class="param-label" for="knapsack-capacity">Truck Capacity (kg)</label>
+                    <input type="number" class="param-input" id="knapsack-capacity" value="2000" min="100" max="50000">
+                </div>
+            </div>
+
+            <!-- Step 2: Route Planning -->
+            <div class="panel" id="panel-tsp">
+                <div class="step-header">
+                    <span class="step-number">2</span>
+                    <div>
+                        <h3 class="step-title">Multi-Stop Route Planning</h3>
+                        <p class="step-algo">TSP — Select method below</p>
                     </div>
-                    <!-- A* blocked edges -->
-                    <div class="param-group hidden" id="params-blocked">
-                        <label class="param-label">Blocked Edges</label>
-                        <p class="param-hint">Click edges on the graph to block/unblock them</p>
-                        <div id="blocked-edges-list" class="blocked-list"></div>
-                        <button class="btn-small" id="clear-blocked">Clear All Blocked</button>
-                    </div>
-                    <!-- Dijkstra temp penalty -->
-                    <div class="param-group hidden" id="params-temp">
-                        <label class="param-label toggle-label">
-                            <input type="checkbox" id="temp-penalty" checked>
-                            <span class="toggle-slider"></span>
-                            Temperature Penalty
+                </div>
+                <div class="param-group">
+                    <label class="param-label" for="tsp-start">Depot / Start City</label>
+                    <select class="param-select" id="tsp-start"></select>
+                </div>
+                <div class="param-group">
+                    <label class="param-label">TSP Solver</label>
+                    <div class="radio-group">
+                        <label class="radio-label">
+                            <input type="radio" name="tsp-method" value="held-karp" checked>
+                            <span class="radio-custom"></span>
+                            <span>Held-Karp <span class="mono-sm">(Exact — O(n²·2ⁿ))</span></span>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="tsp-method" value="nearest-neighbour">
+                            <span class="radio-custom"></span>
+                            <span>Nearest Neighbour <span class="mono-sm">(Heuristic — O(n²))</span></span>
                         </label>
                     </div>
-                    <!-- Knapsack params -->
-                    <div class="param-group hidden" id="params-knapsack">
-                        <label class="param-label" for="knapsack-capacity">Truck Capacity (kg)</label>
-                        <input type="number" class="param-input" id="knapsack-capacity" value="2000" min="100" max="50000">
-                    </div>
-                </div>
-
-                <button class="btn-run" id="btn-run">
-                    <span class="btn-run-icon">▶</span>
-                    Run Algorithm
-                </button>
-            </div>
-
-            <!-- Results Panel -->
-            <div class="panel" id="results-panel">
-                <h2 class="panel-title">
-                    <span class="panel-icon">📊</span>
-                    Results
-                </h2>
-                <div id="results-container">
-                    <div class="results-placeholder">
-                        <span class="placeholder-icon">🗺️</span>
-                        <p>Select an algorithm and click <strong>Run</strong> to see results</p>
-                    </div>
                 </div>
             </div>
+
+            <!-- Step 3: Shortest Path -->
+            <div class="panel" id="panel-dijkstra">
+                <div class="step-header">
+                    <span class="step-number">3</span>
+                    <div>
+                        <h3 class="step-title">Shortest Safe Path</h3>
+                        <p class="step-algo">Dijkstra — O((V+E) log V)</p>
+                    </div>
+                </div>
+                <p class="step-desc">Automatically finds the shortest path between each consecutive pair of stops from the TSP route.</p>
+            </div>
+
+            <!-- Step 4: Dynamic Rerouting -->
+            <div class="panel" id="panel-astar">
+                <div class="step-header">
+                    <span class="step-number">4</span>
+                    <div>
+                        <h3 class="step-title">Dynamic Rerouting</h3>
+                        <p class="step-algo">A* Search — O(E log V)</p>
+                    </div>
+                </div>
+                <p class="step-desc">Click edges on the graph to block them (simulate road failures). A* will find alternate routes.</p>
+                <div id="blocked-edges-list" class="blocked-list">
+                    <span class="empty-blocked">No blocked edges</span>
+                </div>
+                <button class="btn-text" id="clear-blocked">Clear all blocked</button>
+            </div>
+
+            <!-- Run Pipeline -->
+            <button class="btn-run" id="btn-run">
+                ▶ Run Full Pipeline
+            </button>
         </aside>
 
-        <!-- Graph Visualization -->
+        <!-- Center: Graph -->
         <section id="graph-section">
             <div class="graph-toolbar">
                 <div class="toolbar-left">
-                    <button class="toolbar-btn" id="btn-fit" title="Fit to view">⊞ Fit</button>
-                    <button class="toolbar-btn" id="btn-reset" title="Reset view">↺ Reset</button>
+                    <button class="toolbar-btn" id="btn-fit" title="Fit to view">Fit</button>
+                    <button class="toolbar-btn" id="btn-reset" title="Reset">Reset</button>
                 </div>
-                <div class="toolbar-center" id="graph-info">
+                <div class="toolbar-center">
                     <span class="info-chip" id="info-nodes">12 nodes</span>
+                    <span class="info-dot">·</span>
                     <span class="info-chip" id="info-edges">23 edges</span>
                 </div>
                 <div class="toolbar-right">
                     <div class="legend">
-                        <span class="legend-item"><span class="legend-dot" style="background:#06d6a0"></span>Moderate</span>
-                        <span class="legend-item"><span class="legend-dot" style="background:#ef476f"></span>Hot</span>
-                        <span class="legend-item"><span class="legend-dot" style="background:#118ab2"></span>Cold</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:#10B981"></span>Moderate</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:#EF4444"></span>Hot Zone</span>
                     </div>
                 </div>
             </div>
             <div id="cy"></div>
             <div class="graph-overlay hidden" id="loading-overlay">
                 <div class="spinner"></div>
-                <p>Computing...</p>
+                <p>Running pipeline...</p>
             </div>
         </section>
-    </main>
 
-    <!-- ── Knapsack Modal ─────────────────────────────────────────────── -->
-    <div class="modal-overlay hidden" id="knapsack-modal">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>🎒 Cargo Load Optimization</h3>
-                <button class="modal-close" id="modal-close">✕</button>
+        <!-- Right Panel: Results -->
+        <aside id="results-panel">
+            <h2 class="panel-title">Pipeline Results</h2>
+            <div id="results-container">
+                <div class="results-placeholder">
+                    <div class="placeholder-icon">📦</div>
+                    <p>Configure parameters on the left and click <strong>Run Full Pipeline</strong> to optimize your cold-chain delivery.</p>
+                    <div class="pipeline-legend">
+                        <div><span class="dot" style="background:#6366F1"></span> TSP Route</div>
+                        <div><span class="dot" style="background:#10B981"></span> Dijkstra Path</div>
+                        <div><span class="dot" style="background:#F59E0B"></span> A* Reroute</div>
+                    </div>
+                </div>
             </div>
-            <div class="modal-body" id="knapsack-results"></div>
-        </div>
-    </div>
+        </aside>
+    </main>
 
     <!-- Scripts -->
     <script src="js/api.js"></script>

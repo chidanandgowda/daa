@@ -6,6 +6,9 @@ All algorithm endpoints follow a consistent pattern:
   2. Execute algorithm with timing
   3. Return standardized AlgorithmResult response
 
+The /api/optimize endpoint chains algorithms together as a pipeline:
+  Knapsack → TSP → Dijkstra → A* (on failure)
+
 Base URL: /api
 """
 
@@ -19,6 +22,7 @@ from models.schemas import (
     DijkstraRequest,
     AStarRequest,
     KnapsackRequest,
+    PipelineRequest,
     AlgorithmResult,
     GraphResponse,
 )
@@ -60,23 +64,140 @@ def get_cargo_items():
     return {"items": CARGO_ITEMS, "count": len(CARGO_ITEMS)}
 
 
-# ── Held-Karp (Exact TSP) ───────────────────────────────────────────────
+# ── Full Pipeline ────────────────────────────────────────────────────────
+
+@router.post("/optimize")
+def run_pipeline(request: PipelineRequest):
+    """
+    Run the full cold-chain optimization pipeline:
+
+    Step 1 — Knapsack: Select optimal cargo for the truck
+    Step 2 — TSP (Held-Karp or NN): Plan multi-stop delivery route
+    Step 3 — Dijkstra: Find shortest safe segment between consecutive stops
+    Step 4 — A*: Dynamically reroute if any edges are blocked
+
+    All algorithms work together on the same graph and data.
+    """
+    results = {}
+    total_start = time.perf_counter()
+
+    # ── Step 1: Cargo Selection (Knapsack) ───────────────────────────
+    try:
+        t0 = time.perf_counter()
+        knapsack_result = knapsack_01(
+            request.items if request.items else CARGO_ITEMS,
+            request.capacity,
+        )
+        knapsack_time = (time.perf_counter() - t0) * 1000
+        results["knapsack"] = {
+            "algorithm": "0/1 Knapsack DP",
+            "purpose": "Cargo Load Balancing",
+            "result": knapsack_result,
+            "execution_time_ms": round(knapsack_time, 3),
+        }
+    except Exception as e:
+        results["knapsack"] = {"error": str(e)}
+
+    # ── Step 2: Route Planning (TSP) ─────────────────────────────────
+    try:
+        t0 = time.perf_counter()
+        if request.tsp_method == "held-karp":
+            tsp_result = held_karp_tsp(graph, request.start)
+            tsp_name = "Held-Karp (Exact TSP)"
+        else:
+            tsp_result = nearest_neighbour_tsp(graph, request.start)
+            tsp_name = "Nearest Neighbour (Heuristic TSP)"
+        tsp_time = (time.perf_counter() - t0) * 1000
+        results["tsp"] = {
+            "algorithm": tsp_name,
+            "purpose": "Multi-Stop Route Planning",
+            "result": tsp_result,
+            "execution_time_ms": round(tsp_time, 3),
+        }
+    except Exception as e:
+        results["tsp"] = {"error": str(e)}
+
+    # ── Step 3: Shortest Safe Segments (Dijkstra) ────────────────────
+    tsp_path = results.get("tsp", {}).get("result", {}).get("path", [])
+    if len(tsp_path) >= 2:
+        segments = []
+        total_segment_cost = 0
+        t0 = time.perf_counter()
+        for i in range(len(tsp_path) - 1):
+            try:
+                seg = dijkstra(graph, tsp_path[i], tsp_path[i + 1])
+                segments.append({
+                    "from": tsp_path[i],
+                    "to": tsp_path[i + 1],
+                    "path": seg["path"],
+                    "cost": seg["total_cost"],
+                })
+                if seg["total_cost"] > 0:
+                    total_segment_cost += seg["total_cost"]
+            except Exception:
+                segments.append({
+                    "from": tsp_path[i],
+                    "to": tsp_path[i + 1],
+                    "error": "No path found",
+                })
+        dijkstra_time = (time.perf_counter() - t0) * 1000
+        results["dijkstra"] = {
+            "algorithm": "Dijkstra's Algorithm",
+            "purpose": "Shortest Safe Path (per segment)",
+            "segments": segments,
+            "total_segment_cost": round(total_segment_cost, 2),
+            "execution_time_ms": round(dijkstra_time, 3),
+        }
+
+    # ── Step 4: Dynamic Rerouting (A*) ───────────────────────────────
+    blocked = None
+    if request.blocked_edges:
+        blocked = [(e[0], e[1]) for e in request.blocked_edges]
+
+    if blocked and len(tsp_path) >= 2:
+        rerouted_segments = []
+        t0 = time.perf_counter()
+        for i in range(len(tsp_path) - 1):
+            try:
+                seg = astar_search(graph, tsp_path[i], tsp_path[i + 1], blocked)
+                rerouted_segments.append({
+                    "from": tsp_path[i],
+                    "to": tsp_path[i + 1],
+                    "path": seg["path"],
+                    "cost": seg["total_cost"],
+                    "was_affected": seg["total_cost"] != graph.get_weight(tsp_path[i], tsp_path[i + 1]),
+                })
+            except Exception:
+                rerouted_segments.append({
+                    "from": tsp_path[i],
+                    "to": tsp_path[i + 1],
+                    "error": "No alternate route found",
+                })
+        astar_time = (time.perf_counter() - t0) * 1000
+        results["astar"] = {
+            "algorithm": "A* Search",
+            "purpose": "Dynamic Rerouting (blocked edges)",
+            "blocked_edges": request.blocked_edges,
+            "segments": rerouted_segments,
+            "execution_time_ms": round(astar_time, 3),
+        }
+
+    total_time = (time.perf_counter() - total_start) * 1000
+    return {
+        "pipeline": results,
+        "total_execution_time_ms": round(total_time, 3),
+    }
+
+
+# ── Individual Endpoints ─────────────────────────────────────────────────
 
 @router.post("/tsp", response_model=AlgorithmResult)
 def run_held_karp(request: TSPRequest):
-    """
-    Solve TSP exactly using the Held-Karp DP algorithm.
-
-    Returns the optimal Hamiltonian cycle (minimum cost tour visiting
-    all cities exactly once and returning to start).
-
-    ⚠️ Exponential time — suitable for ≤ 20 cities.
-    """
+    """Solve TSP exactly using the Held-Karp DP algorithm."""
     try:
         start_time = time.perf_counter()
         result = held_karp_tsp(graph, request.start)
         elapsed_ms = (time.perf_counter() - start_time) * 1000
-
         return AlgorithmResult(
             algorithm="Held-Karp (Exact TSP)",
             result=result,
@@ -88,20 +209,13 @@ def run_held_karp(request: TSPRequest):
         raise HTTPException(status_code=500, detail=f"Algorithm error: {str(e)}")
 
 
-# ── Dijkstra (Shortest Safe Path) ───────────────────────────────────────
-
 @router.post("/dijkstra", response_model=AlgorithmResult)
 def run_dijkstra(request: DijkstraRequest):
-    """
-    Find the shortest (cheapest) path between two cities using Dijkstra's algorithm.
-
-    Optionally applies temperature-zone penalties for cold-chain safety.
-    """
+    """Find shortest path using Dijkstra's algorithm."""
     try:
         start_time = time.perf_counter()
         result = dijkstra(graph, request.source, request.destination, request.temp_penalty)
         elapsed_ms = (time.perf_counter() - start_time) * 1000
-
         return AlgorithmResult(
             algorithm="Dijkstra (Shortest Safe Path)",
             result=result,
@@ -113,25 +227,16 @@ def run_dijkstra(request: DijkstraRequest):
         raise HTTPException(status_code=500, detail=f"Algorithm error: {str(e)}")
 
 
-# ── A* Search (Dynamic Rerouting) ───────────────────────────────────────
-
 @router.post("/astar", response_model=AlgorithmResult)
 def run_astar(request: AStarRequest):
-    """
-    Find the optimal path using A* search with Haversine heuristic.
-
-    Supports blocked edges to simulate route failures and dynamic rerouting.
-    """
+    """A* search with optional blocked edges for dynamic rerouting."""
     try:
-        # Convert blocked edges from list of lists to list of tuples
         blocked = None
         if request.blocked_edges:
             blocked = [(e[0], e[1]) for e in request.blocked_edges]
-
         start_time = time.perf_counter()
         result = astar_search(graph, request.source, request.destination, blocked)
         elapsed_ms = (time.perf_counter() - start_time) * 1000
-
         return AlgorithmResult(
             algorithm="A* Search (Dynamic Rerouting)",
             result=result,
@@ -143,22 +248,14 @@ def run_astar(request: AStarRequest):
         raise HTTPException(status_code=500, detail=f"Algorithm error: {str(e)}")
 
 
-# ── 0/1 Knapsack (Cargo Load Balancing) ─────────────────────────────────
-
 @router.post("/knapsack", response_model=AlgorithmResult)
 def run_knapsack(request: KnapsackRequest):
-    """
-    Optimize cargo loading using 0/1 Knapsack dynamic programming.
-
-    Uses sample cargo items if no custom items are provided.
-    """
+    """0/1 Knapsack optimization for cargo loading."""
     try:
         items = request.items if request.items else CARGO_ITEMS
-
         start_time = time.perf_counter()
         result = knapsack_01(items, request.capacity)
         elapsed_ms = (time.perf_counter() - start_time) * 1000
-
         return AlgorithmResult(
             algorithm="0/1 Knapsack (Cargo Load Balancing)",
             result=result,
@@ -168,21 +265,13 @@ def run_knapsack(request: KnapsackRequest):
         raise HTTPException(status_code=500, detail=f"Algorithm error: {str(e)}")
 
 
-# ── Nearest Neighbour (TSP Heuristic) ───────────────────────────────────
-
 @router.post("/nearest-neighbour", response_model=AlgorithmResult)
 def run_nearest_neighbour(request: TSPRequest):
-    """
-    Approximate TSP using the Nearest Neighbour greedy heuristic.
-
-    Faster than Held-Karp but produces suboptimal solutions.
-    Used as a performance comparison baseline.
-    """
+    """Nearest Neighbour TSP heuristic."""
     try:
         start_time = time.perf_counter()
         result = nearest_neighbour_tsp(graph, request.start)
         elapsed_ms = (time.perf_counter() - start_time) * 1000
-
         return AlgorithmResult(
             algorithm="Nearest Neighbour (TSP Heuristic)",
             result=result,

@@ -1,22 +1,17 @@
 /**
- * App Controller — Cold-Chain Logistics Optimizer
- * Main application logic: initialization, algorithm execution,
- * and event orchestration between API, Graph, and UI modules.
+ * App Controller — Pipeline-based Cold-Chain Optimizer
+ * Runs all algorithms as a unified pipeline:
+ *   Knapsack → TSP → Dijkstra → A*
  */
 
 const App = (() => {
-    let currentAlgo = 'held-karp';
 
-    /**
-     * Initialize the application.
-     */
     async function init() {
-        // 1. Cache DOM elements & set up UI events
         UI.cacheElements();
         UI.initEvents();
 
-        // 2. Check API connectivity
-        const apiOk = await API.healthCheck();
+        // Check API
+        var apiOk = await API.healthCheck();
         UI.setApiStatus(apiOk);
 
         if (!apiOk) {
@@ -24,130 +19,67 @@ const App = (() => {
             return;
         }
 
-        // 3. Load graph data
+        // Load graph
         try {
-            const graphData = await API.getGraph();
+            var graphData = await API.getGraph();
             GraphViz.init(graphData);
             UI.updateGraphInfo(graphData.node_count, graphData.edge_count);
-
-            // Populate dropdowns
-            const nodes = GraphViz.getNodeIds();
-            UI.populateDropdowns(nodes);
+            UI.populateDropdowns(GraphViz.getNodeIds());
         } catch (err) {
-            UI.showError(`Failed to load graph: ${err.message}`);
+            UI.showError('Failed to load graph: ' + err.message);
             return;
         }
 
-        // 4. Set up algorithm selection
-        setupAlgoSelection();
+        // Run button
+        document.getElementById('btn-run').addEventListener('click', runPipeline);
 
-        // 5. Set up Run button
-        document.getElementById('btn-run').addEventListener('click', runAlgorithm);
-
-        // 6. Set up toolbar buttons
-        document.getElementById('btn-fit').addEventListener('click', () => GraphViz.fit());
-        document.getElementById('btn-reset').addEventListener('click', () => {
+        // Toolbar
+        document.getElementById('btn-fit').addEventListener('click', function() { GraphViz.fit(); });
+        document.getElementById('btn-reset').addEventListener('click', function() {
             GraphViz.reset();
             UI.updateBlockedEdgesUI([]);
         });
 
-        // 7. Show default params
-        UI.showParamsFor(currentAlgo);
-
-        console.log('🧊 Cold-Chain Logistics Optimizer initialized successfully');
+        console.log('Cold-Chain Logistics Optimizer initialized');
     }
 
-    /**
-     * Set up algorithm selector button events.
-     */
-    function setupAlgoSelection() {
-        const buttons = document.querySelectorAll('.algo-btn');
-        buttons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                // Update active state
-                buttons.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-
-                currentAlgo = btn.dataset.algo;
-                UI.showParamsFor(currentAlgo);
-
-                // Clear highlights when switching algorithms
-                GraphViz.clearHighlights();
-            });
-        });
-    }
-
-    /**
-     * Execute the currently selected algorithm.
-     */
-    async function runAlgorithm() {
+    async function runPipeline() {
         UI.setLoading(true);
         GraphViz.clearHighlights();
 
         try {
-            let response;
+            // Gather parameters
+            var start = document.getElementById('tsp-start').value;
+            var capacity = parseFloat(document.getElementById('knapsack-capacity').value) || 2000;
+            var tspMethod = document.querySelector('input[name="tsp-method"]:checked').value;
+            var blocked = GraphViz.getBlockedEdges();
 
-            switch (currentAlgo) {
-                case 'held-karp': {
-                    const start = document.getElementById('tsp-start').value;
-                    response = await API.runHeldKarp(start);
-                    break;
-                }
-                case 'nearest-neighbour': {
-                    const start = document.getElementById('tsp-start').value;
-                    response = await API.runNearestNeighbour(start);
-                    break;
-                }
-                case 'dijkstra': {
-                    const source = document.getElementById('path-source').value;
-                    const dest = document.getElementById('path-dest').value;
-                    const tempPenalty = document.getElementById('temp-penalty').checked;
-
-                    if (source === dest) {
-                        UI.showError('Source and destination must be different.');
-                        UI.setLoading(false);
-                        return;
-                    }
-
-                    response = await API.runDijkstra(source, dest, tempPenalty);
-                    break;
-                }
-                case 'astar': {
-                    const source = document.getElementById('path-source').value;
-                    const dest = document.getElementById('path-dest').value;
-                    const blocked = GraphViz.getBlockedEdges();
-
-                    if (source === dest) {
-                        UI.showError('Source and destination must be different.');
-                        UI.setLoading(false);
-                        return;
-                    }
-
-                    response = await API.runAStar(source, dest, blocked.length > 0 ? blocked : null);
-                    break;
-                }
-                case 'knapsack': {
-                    const capacity = parseFloat(document.getElementById('knapsack-capacity').value);
-                    if (isNaN(capacity) || capacity <= 0) {
-                        UI.showError('Please enter a valid capacity > 0.');
-                        UI.setLoading(false);
-                        return;
-                    }
-                    response = await API.runKnapsack(capacity);
-                    break;
-                }
-                default:
-                    UI.showError(`Unknown algorithm: ${currentAlgo}`);
-                    UI.setLoading(false);
-                    return;
+            var params = {
+                start: start,
+                capacity: capacity,
+                tsp_method: tspMethod,
+            };
+            if (blocked.length > 0) {
+                params.blocked_edges = blocked;
             }
 
-            // Display results
-            UI.showResults(response, currentAlgo);
+            // Call pipeline
+            var data = await API.runPipeline(params);
 
-            // Highlight path on graph (if applicable)
-            if (response.result && response.result.path && response.result.path.length > 0) {
-                GraphViz.highlightPath(response.result.path, currentAlgo);
+            // Display results
+            UI.showPipelineResults(data);
+
+            // Highlight on graph
+            var pipeline = data.pipeline;
+
+            // TSP route (primary)
+            if (pipeline.tsp && pipeline.tsp.result && pipeline.tsp.result.path) {
+                GraphViz.highlightTSPPath(pipeline.tsp.result.path);
+            }
+
+            // If A* was used, show rerouted segments
+            if (pipeline.astar && pipeline.astar.segments) {
+                GraphViz.highlightAStarSegments(pipeline.astar.segments);
             }
 
         } catch (err) {
@@ -157,27 +89,15 @@ const App = (() => {
         }
     }
 
-    /**
-     * Get the currently selected algorithm key.
-     */
-    function getCurrentAlgo() {
-        return currentAlgo;
-    }
-
-    /**
-     * Update blocked edges in the UI after toggling on the graph.
-     */
     function updateBlockedEdges() {
-        const blocked = GraphViz.getBlockedEdges();
+        var blocked = GraphViz.getBlockedEdges();
         UI.updateBlockedEdgesUI(blocked);
     }
 
     return {
-        init,
-        getCurrentAlgo,
-        updateBlockedEdges,
+        init: init,
+        updateBlockedEdges: updateBlockedEdges,
     };
 })();
 
-// ── Bootstrap ──────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', App.init);

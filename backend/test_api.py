@@ -1,70 +1,47 @@
-"""Quick API test script."""
+"""Test the /api/optimize pipeline endpoint."""
 import urllib.request
 import json
 
-BASE = "http://localhost:8000"
-
-def get(path):
-    r = urllib.request.urlopen(f"{BASE}{path}")
-    return json.loads(r.read())
-
 def post(path, data):
     req = urllib.request.Request(
-        f"{BASE}{path}",
+        "http://localhost:8000" + path,
         data=json.dumps(data).encode(),
         headers={"Content-Type": "application/json"},
     )
-    r = urllib.request.urlopen(req)
-    return json.loads(r.read())
+    return json.loads(urllib.request.urlopen(req).read())
 
-# Test 1: Health check
-print("=== Health Check ===")
-h = get("/")
-print(f"  Status: {h['status']}, Project: {h['project']}")
+print("=== Testing Full Pipeline ===\n")
 
-# Test 2: Graph
-print("\n=== Graph Data ===")
-g = get("/api/graph")
-print(f"  Nodes: {g['node_count']}, Edges: {g['edge_count']}")
+result = post("/api/optimize", {
+    "start": "DEL",
+    "capacity": 2000,
+    "tsp_method": "held-karp",
+    "blocked_edges": [["MUM", "PUN"]]
+})
 
-# Test 3: Held-Karp TSP
-print("\n=== Held-Karp TSP (start=DEL) ===")
-t = post("/api/tsp", {"start": "DEL"})
-r = t["result"]
-print(f"  Cost: {r['total_cost']}")
-print(f"  Path: {' -> '.join(r['path'])}")
-print(f"  Time: {t['execution_time_ms']:.2f} ms")
+p = result["pipeline"]
 
-# Test 4: Nearest Neighbour
-print("\n=== Nearest Neighbour TSP (start=DEL) ===")
-nn = post("/api/nearest-neighbour", {"start": "DEL"})
-r2 = nn["result"]
-print(f"  Cost: {r2['total_cost']}")
-print(f"  Path: {' -> '.join(r2['path'])}")
-print(f"  Time: {nn['execution_time_ms']:.2f} ms")
+# Knapsack
+ks = p["knapsack"]["result"]
+print(f"Step 1 - Knapsack: {len(ks['selected_items'])} items, "
+      f"value=Rs.{ks['total_value']}, weight={ks['total_weight']}kg, "
+      f"util={ks['utilization_pct']}%")
 
-# Test 5: Dijkstra
-print("\n=== Dijkstra (DEL -> BLR) ===")
-dj = post("/api/dijkstra", {"source": "DEL", "destination": "BLR", "temp_penalty": True})
-r3 = dj["result"]
-print(f"  Cost: {r3['total_cost']}")
-print(f"  Path: {' -> '.join(r3['path'])}")
-print(f"  Nodes explored: {r3['nodes_explored']}")
+# TSP
+tsp = p["tsp"]["result"]
+print(f"Step 2 - Held-Karp TSP: cost={tsp['total_cost']}, "
+      f"path={' -> '.join(tsp['path'])}")
 
-# Test 6: A* Search
-print("\n=== A* Search (DEL -> BLR, blocked MUM-PUN) ===")
-a = post("/api/astar", {"source": "DEL", "destination": "BLR", "blocked_edges": [["MUM", "PUN"]]})
-r4 = a["result"]
-print(f"  Cost: {r4['total_cost']}")
-print(f"  Path: {' -> '.join(r4['path'])}")
+# Dijkstra
+dj = p["dijkstra"]
+print(f"Step 3 - Dijkstra: {len(dj['segments'])} segments, "
+      f"total_cost={dj['total_segment_cost']}")
 
-# Test 7: Knapsack
-print("\n=== 0/1 Knapsack (capacity=2000kg) ===")
-k = post("/api/knapsack", {"capacity": 2000})
-r5 = k["result"]
-print(f"  Value: {r5['total_value']}")
-print(f"  Weight: {r5['total_weight']} kg")
-print(f"  Utilization: {r5['utilization_pct']}%")
-print(f"  Items: {', '.join(i['name'] for i in r5['selected_items'])}")
+# A*
+if "astar" in p:
+    astar = p["astar"]
+    print(f"Step 4 - A*: {len(astar['segments'])} segments rerouted "
+          f"around {len(astar['blocked_edges'])} blocked edges")
 
-print("\n✅ All tests passed!")
+print(f"\nTotal pipeline time: {result['total_execution_time_ms']:.2f} ms")
+print("\nAll algorithms worked together successfully!")

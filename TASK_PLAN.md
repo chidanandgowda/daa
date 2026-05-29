@@ -16,55 +16,29 @@
   - [x] Cold-chain metadata (max transit time, refrigeration cost)
 
 ## Phase 3: Algorithm Implementation
-- [x] **Held-Karp (Exact TSP via DP + Bitmask)**
-  - [x] Core implementation with memoization
-  - [x] Path reconstruction
-  - [x] Complexity analysis in docstring: O(n² · 2ⁿ) time, O(n · 2ⁿ) space
-- [x] **Dijkstra's Algorithm (Shortest Safe Path)**
-  - [x] Min-heap priority queue implementation
-  - [x] Temperature-aware edge weighting
-  - [x] Complexity: O((V + E) log V)
-- [x] **A* Search (Dynamic Rerouting)**
-  - [x] Haversine-based heuristic function
-  - [x] Edge failure simulation (blocked routes)
-  - [x] Complexity: O(E log V) with admissible heuristic
-- [x] **0/1 Knapsack (Cargo Load Balancing)**
-  - [x] Classic DP table approach
-  - [x] Item selection backtracking
-  - [x] Complexity: O(n · W) time, O(n · W) space
-- [x] **Nearest Neighbour Heuristic (TSP Approximation)**
-  - [x] Greedy nearest-city selection
-  - [x] Complexity: O(n²)
+- [x] **Held-Karp (Exact TSP via DP + Bitmask)** — O(n²·2ⁿ)
+- [x] **Dijkstra's Algorithm (Shortest Safe Path)** — O((V+E) log V)
+- [x] **A* Search (Dynamic Rerouting)** — O(E log V)
+- [x] **0/1 Knapsack (Cargo Load Balancing)** — O(n·W)
+- [x] **Nearest Neighbour Heuristic (TSP Approximation)** — O(n²)
 
 ## Phase 4: Backend API (FastAPI)
-- [x] Project configuration & CORS setup
-- [x] API Endpoints:
-  - [x] `GET /api/graph` — Return full graph data
-  - [x] `POST /api/tsp` — Held-Karp exact TSP
-  - [x] `POST /api/dijkstra` — Shortest path (source → destination)
-  - [x] `POST /api/astar` — A* with optional blocked edges
-  - [x] `POST /api/knapsack` — Cargo optimization
-  - [x] `POST /api/nearest-neighbour` — TSP heuristic
-- [x] Request/response models (Pydantic)
-- [x] Error handling & input validation
-- [x] Algorithm execution timing
+- [x] REST endpoints for each algorithm
+- [x] **Unified `/api/optimize` pipeline endpoint** (Knapsack → TSP → Dijkstra → A*)
+- [x] Pydantic schemas with validation
+- [x] CORS, error handling, execution timing
 
 ## Phase 5: Frontend (Vanilla JS + Cytoscape.js)
-- [x] Project scaffold (HTML/CSS/JS)
-- [x] Cytoscape.js graph rendering
-  - [x] Node positioning (geographic coordinates)
-  - [x] Edge labels (cost)
-  - [x] Interactive click events
-- [x] Sidebar UI for algorithm selection
-  - [x] Algorithm parameter inputs
-  - [x] Run button & result display
-- [x] Path highlighting with distinct colors per algorithm
-- [x] Result panel (path sequence, cost, time, complexity)
-- [x] Responsive design & dark theme
-- [x] Loading states & error messages
+- [x] **Light professional theme** (white/indigo, no dark background)
+- [x] **Pipeline workflow UI** — algorithms work together, not independently
+- [x] 3-column layout: Controls → Graph → Results
+- [x] Cytoscape.js graph with geographic node positioning
+- [x] Step-by-step pipeline results display
+- [x] Edge blocking for A* rerouting (click edges on graph)
+- [x] Responsive design
 
 ## Phase 6: Documentation & Polish
-- [x] README.md (setup, usage, API docs)
-- [x] Performance Report (Held-Karp vs Nearest Neighbour)
-- [x] Code comments & docstrings audit
-- [ ] Final testing & verification
+- [x] README.md with full setup instructions
+- [x] PERFORMANCE_REPORT.md (Held-Karp vs Nearest Neighbour)
+- [x] All code well-commented with complexity docstrings
+- [x] Pipeline API tested and verified ✅

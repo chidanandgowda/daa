@@ -2,39 +2,31 @@
 
 > **Design and Analysis of Algorithms (DAA) Project**
 > RV College of Engineering, Bengaluru
+> *Ganesh M · Chidanand Gowda · Chirantan*
 
-A full-stack web application that models cold-chain logistics as a graph problem, providing optimal routing and cargo decisions with interactive visualization using **Cytoscape.js**.
-
----
-
-## 📸 Features
-
-- **Interactive Graph Visualization** — 12 Indian cold-chain cities rendered geographically with Cytoscape.js
-- **5 Algorithm Implementations** with full complexity analysis:
-  | Algorithm | Type | Complexity | Purpose |
-  |-----------|------|------------|---------|
-  | Held-Karp | Exact TSP | O(n²·2ⁿ) | Optimal multi-stop route |
-  | Nearest Neighbour | TSP Heuristic | O(n²) | Fast approximate route |
-  | Dijkstra | Shortest Path | O((V+E)·log V) | Temperature-safe routing |
-  | A* Search | Informed Search | O(E·log V) | Dynamic rerouting with blocked roads |
-  | 0/1 Knapsack | DP | O(n·W) | Cargo load balancing |
-
-- **Color-Coded Path Highlighting** — Each algorithm uses a distinct color
-- **Edge Blocking** — Click edges to simulate route failures (A* mode)
-- **Temperature Penalties** — Cold-chain safety-aware edge weighting
-- **Real-Time Results** — Execution time, cost, path, and complexity displayed instantly
-- **Premium Dark Theme** with glassmorphism and smooth animations
+A full-stack web application that models cold-chain logistics as a graph problem. All five algorithms work together in a **unified optimization pipeline** to solve routing, scheduling, and cargo-loading problems for temperature-sensitive goods.
 
 ---
 
-## 🛠️ Tech Stack
+## 🔗 How the Algorithms Work Together
 
-| Layer | Technology |
-|-------|-----------|
-| Backend | Python 3.10+, FastAPI, Pydantic, Uvicorn |
-| Frontend | Vanilla JS, Cytoscape.js, CSS3 |
-| Graph | Adjacency List (dict of dicts) |
-| API | REST (JSON), auto-generated OpenAPI docs |
+The core idea: **each algorithm solves one piece of the logistics puzzle, and they chain together as a pipeline.**
+
+```
+┌─────────────┐     ┌───────────────┐     ┌──────────────┐     ┌────────────┐
+│  0/1 Knapsack│ ──→ │  Held-Karp /  │ ──→ │   Dijkstra   │ ──→ │  A* Search │
+│  Cargo Load  │     │  NN (TSP)     │     │  Safe Paths  │     │  Rerouting │
+│  Balancing   │     │  Route Plan   │     │  per Segment │     │  on Failure│
+└─────────────┘     └───────────────┘     └──────────────┘     └────────────┘
+  What to load?       Which order?         Shortest route?      Road blocked?
+```
+
+| Step | Algorithm | Problem | Complexity |
+|------|-----------|---------|------------|
+| 1 | **0/1 Knapsack DP** | Select optimal cargo for the truck | O(n·W) |
+| 2 | **Held-Karp TSP** (or Nearest Neighbour) | Plan multi-stop delivery route | O(n²·2ⁿ) / O(n²) |
+| 3 | **Dijkstra's Algorithm** | Find shortest safe path between consecutive stops | O((V+E) log V) |
+| 4 | **A* Search** | Dynamically reroute if roads are blocked | O(E log V) |
 
 ---
 
@@ -43,9 +35,7 @@ A full-stack web application that models cold-chain logistics as a graph problem
 ```
 cold-chain-optimizer/
 ├── backend/
-│   ├── app/
-│   │   ├── main.py              # FastAPI entry point
-│   │   └── config.py            # Configuration
+│   ├── app/main.py              # FastAPI entry point
 │   ├── algorithms/
 │   │   ├── held_karp.py         # Exact TSP (DP + bitmask)
 │   │   ├── dijkstra.py          # Shortest safe path
@@ -54,25 +44,21 @@ cold-chain-optimizer/
 │   │   └── nearest_neighbour.py # TSP greedy heuristic
 │   ├── models/
 │   │   ├── graph.py             # Graph class (adjacency list)
-│   │   └── schemas.py           # Pydantic models
-│   ├── api/
-│   │   └── routes.py            # REST API endpoints
-│   ├── data/
-│   │   └── sample_data.py       # 12 cities + 12 cargo items
+│   │   └── schemas.py           # Pydantic request/response models
+│   ├── api/routes.py            # REST API + pipeline endpoint
+│   ├── data/sample_data.py      # 12 cities + 12 cargo items
 │   └── requirements.txt
 ├── frontend/
 │   ├── index.html
-│   ├── css/style.css
+│   ├── css/style.css            # Light professional theme
 │   └── js/
-│       ├── app.js               # Main controller
+│       ├── app.js               # Pipeline controller
 │       ├── graph.js             # Cytoscape.js renderer
 │       ├── api.js               # API client
-│       └── ui.js                # UI interactions
+│       └── ui.js                # UI & result display
 ├── README.md
 ├── PERFORMANCE_REPORT.md
-├── TASK_PLAN.md
-├── PROGRESS.md
-└── CONTEXT.md
+└── DAA_Abstract.pdf
 ```
 
 ---
@@ -80,24 +66,18 @@ cold-chain-optimizer/
 ## 🚀 Setup & Run
 
 ### Prerequisites
-- **Python 3.10+** installed
-- **pip** package manager
-- A modern web browser (Chrome, Firefox, Edge)
+- Python 3.10+
+- A modern web browser
 
-### 1. Backend Setup
+### 1. Backend
 
 ```bash
-# Navigate to backend directory
 cd backend
 
 # Create virtual environment (recommended)
 python -m venv venv
-
-# Activate virtual environment
-# Windows:
-venv\Scripts\activate
-# macOS/Linux:
-source venv/bin/activate
+venv\Scripts\activate          # Windows
+# source venv/bin/activate     # macOS/Linux
 
 # Install dependencies
 pip install -r requirements.txt
@@ -106,24 +86,16 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
-The API will be available at: `http://localhost:8000`
-- Swagger UI: `http://localhost:8000/docs`
-- ReDoc: `http://localhost:8000/redoc`
+API available at `http://localhost:8000` — Swagger docs at `/docs`
 
-### 2. Frontend Setup
-
-Open `frontend/index.html` directly in a browser, or serve it:
+### 2. Frontend
 
 ```bash
-# Option A: Python HTTP server
 cd frontend
 python -m http.server 5500
-
-# Option B: VS Code Live Server extension
-# Right-click index.html → "Open with Live Server"
 ```
 
-Frontend will be at: `http://localhost:5500`
+Open `http://localhost:5500` in your browser.
 
 ---
 
@@ -131,39 +103,50 @@ Frontend will be at: `http://localhost:5500`
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/graph` | Get full graph (nodes + edges) |
-| GET | `/api/cargo` | Get cargo items list |
-| POST | `/api/tsp` | Run Held-Karp exact TSP |
-| POST | `/api/dijkstra` | Shortest path (Dijkstra) |
-| POST | `/api/astar` | A* search with blocked edges |
-| POST | `/api/knapsack` | 0/1 Knapsack optimization |
-| POST | `/api/nearest-neighbour` | Nearest Neighbour TSP |
+| GET | `/api/graph` | Full graph data (nodes + edges) |
+| GET | `/api/cargo` | Cargo items list |
+| **POST** | **`/api/optimize`** | **Full pipeline (Knapsack → TSP → Dijkstra → A*)** |
+| POST | `/api/tsp` | Held-Karp TSP (standalone) |
+| POST | `/api/nearest-neighbour` | NN TSP heuristic (standalone) |
+| POST | `/api/dijkstra` | Dijkstra shortest path (standalone) |
+| POST | `/api/astar` | A* search (standalone) |
+| POST | `/api/knapsack` | Knapsack optimization (standalone) |
 
-### Example: Run Held-Karp TSP
+### Pipeline Example
+
 ```bash
-curl -X POST http://localhost:8000/api/tsp \
+curl -X POST http://localhost:8000/api/optimize \
   -H "Content-Type: application/json" \
-  -d '{"start": "DEL"}'
+  -d '{
+    "start": "DEL",
+    "capacity": 2000,
+    "tsp_method": "held-karp",
+    "blocked_edges": [["MUM", "PUN"]]
+  }'
 ```
 
 ---
 
 ## 📊 Sample Dataset
 
-**12 Indian Cities** on major cold-chain corridors:
-Delhi, Mumbai, Bengaluru, Chennai, Kolkata, Hyderabad, Ahmedabad, Pune, Jaipur, Lucknow, Kochi, Visakhapatnam
-
-**12 Cargo Items** including:
-Insulin Vials, Frozen Seafood, Vaccine Shipments, Blood Plasma, Biotech Samples, and more.
+- **12 Indian cities**: Delhi, Mumbai, Bengaluru, Chennai, Kolkata, Hyderabad, Ahmedabad, Pune, Jaipur, Lucknow, Kochi, Visakhapatnam
+- **23 weighted routes** with distance, cost, transit time, and road quality
+- **12 cargo items**: Insulin, Vaccines, Blood Plasma, Frozen Seafood, Dairy, etc.
 
 ---
 
-## 👤 Author
+## ✅ Verified Pipeline Output
 
-DAA Course Project — RV College of Engineering
+```
+Step 1 - Knapsack:  6 items selected, ₹341,000 value, 1980 kg (99% utilization)
+Step 2 - Held-Karp: Optimal 12-city tour, cost ₹99,900
+Step 3 - Dijkstra:  12 shortest-path segments, total ₹110,285
+Step 4 - A*:        12 segments rerouted around blocked edge MUM↔PUN
+Total pipeline:     43.87 ms
+```
 
 ---
 
 ## 📄 License
 
-This project is for academic purposes.
+Academic project — RV College of Engineering, 2025–26.

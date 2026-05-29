@@ -1,155 +1,157 @@
-# Performance Report: Held-Karp vs Nearest Neighbour for TSP
+# Performance Report: Cold-Chain Logistics Optimizer
 
-> **Cold-Chain Logistics Optimizer — DAA Project**
-> RV College of Engineering, Bengaluru
+> **RVCE — Design and Analysis of Algorithms Project**
+> Ganesh M · Chidanand Gowda · Chirantan
 
 ## 1. Introduction
 
-This report compares two approaches to solving the Travelling Salesman Problem (TSP) in the context of cold-chain logistics route planning:
-
-1. **Held-Karp Algorithm** — Exact solution using Dynamic Programming with bitmask representation
-2. **Nearest Neighbour Heuristic** — Greedy approximation algorithm
-
-Both algorithms operate on the same graph of 12 Indian cold-chain cities with weighted edges representing transportation costs.
+This report analyzes the performance of the five algorithms used in the Cold-Chain Logistics Optimizer, focusing on how they **work together as a pipeline** and the individual complexity/performance characteristics of each.
 
 ---
 
-## 2. Algorithm Overview
+## 2. The Optimization Pipeline
 
-### 2.1 Held-Karp (Exact TSP)
+The algorithms are chained to solve the complete cold-chain logistics problem:
 
-The Held-Karp algorithm uses **Dynamic Programming over subsets** to find the minimum-cost Hamiltonian cycle. It represents visited city subsets as bitmasks and builds optimal sub-tours incrementally.
-
-**Key Equations:**
 ```
-dp[S][i] = min cost to visit all cities in subset S, ending at city i
-dp[S][i] = min over j in S\{i} of (dp[S\{i}][j] + cost(j, i))
+Step 1: Knapsack    →  Step 2: TSP      →  Step 3: Dijkstra  →  Step 4: A*
+(What to load?)        (Which order?)       (Shortest paths?)     (Road blocked?)
 ```
 
-| Metric | Value |
-|--------|-------|
-| **Time Complexity** | O(n² · 2ⁿ) |
-| **Space Complexity** | O(n · 2ⁿ) |
-| **Optimality** | ✅ Guaranteed optimal |
-| **Practical Limit** | n ≤ 20 cities |
-
-For n = 12:
-- DP states: 12 × 2¹² = 12 × 4,096 = **49,152 states**
-- Time operations: ~12² × 4,096 = **589,824**
-
-### 2.2 Nearest Neighbour (TSP Heuristic)
-
-A greedy constructive heuristic that builds the tour by always visiting the **nearest unvisited city**. No backtracking or improvement is performed.
-
-| Metric | Value |
-|--------|-------|
-| **Time Complexity** | O(n²) |
-| **Space Complexity** | O(n) |
-| **Optimality** | ❌ Not guaranteed |
-| **Approximation** | Typically within 20–25% of optimal |
-
-For n = 12:
-- Operations: 12² = **144**
+**Why this order matters:**
+- You must decide **what cargo to carry** (Knapsack) before you can plan the route
+- You need the **multi-stop route** (TSP) before computing segment-level paths
+- Dijkstra gives the **shortest safe path** per segment of the TSP tour
+- A* handles **dynamic failures** — only triggered when edges are blocked
 
 ---
 
-## 3. Comparative Analysis
+## 3. Algorithm Complexity Analysis
 
-### 3.1 Time Complexity Comparison
+| Algorithm | Time Complexity | Space Complexity | Type |
+|-----------|----------------|-----------------|------|
+| 0/1 Knapsack | O(n · W) | O(n · W) | Pseudo-polynomial DP |
+| Held-Karp TSP | O(n² · 2ⁿ) | O(n · 2ⁿ) | Exponential DP |
+| Nearest Neighbour | O(n²) | O(n) | Greedy heuristic |
+| Dijkstra | O((V+E) · log V) | O(V) | Greedy (priority queue) |
+| A* Search | O(E · log V) | O(V) | Informed search |
 
-| n (Cities) | Held-Karp O(n²·2ⁿ) | Nearest Neighbour O(n²) | Speedup Factor |
-|-----------|---------------------|------------------------|----------------|
+---
+
+## 4. Empirical Results (12-City Network)
+
+Pipeline executed with: Start=DEL, Capacity=2000 kg, 1 blocked edge (MUM↔PUN)
+
+### Step 1: 0/1 Knapsack — Cargo Selection
+
+| Metric | Value |
+|--------|-------|
+| Items available | 12 |
+| Items selected | 6 |
+| Total value | ₹341,000 |
+| Total weight | 1,980 kg |
+| Capacity utilization | 99.0% |
+| Execution time | < 1 ms |
+| DP table size | 12 × 2000 = 24,000 entries |
+
+The knapsack correctly prioritized high-value, low-weight items (Vaccines ₹95K/80kg, Blood Plasma ₹72K/50kg, Biotech Samples ₹58K/30kg).
+
+### Step 2: Held-Karp TSP — Route Planning
+
+| Metric | Value |
+|--------|-------|
+| Cities | 12 |
+| Optimal tour cost | ₹99,900 |
+| DP states computed | ~49,152 |
+| Execution time | ~40 ms |
+| Path | DEL → LKO → KOL → VIZ → CHN → COC → BLR → HYD → PUN → MUM → AHM → JAI → DEL |
+
+### Step 3: Dijkstra — Shortest Safe Paths
+
+| Metric | Value |
+|--------|-------|
+| Segments computed | 12 |
+| Total segment cost | ₹110,285 |
+| Execution time | < 1 ms |
+| Nodes explored (avg) | 3–5 per segment |
+
+Dijkstra runs once per consecutive pair in the TSP route, finding the cheapest path for each leg of the journey.
+
+### Step 4: A* Search — Dynamic Rerouting
+
+| Metric | Value |
+|--------|-------|
+| Blocked edges | 1 (MUM ↔ PUN) |
+| Segments rerouted | 12 |
+| Execution time | < 1 ms |
+| Heuristic | Haversine distance × cost factor |
+
+A* successfully rerouted the MUM→PUN segment through an alternate path, demonstrating real-time failure recovery.
+
+### Total Pipeline
+
+| Metric | Value |
+|--------|-------|
+| **Total execution time** | **43.87 ms** |
+| Steps executed | 4 |
+| Graph nodes | 12 |
+| Graph edges | 23 |
+
+---
+
+## 5. Held-Karp vs Nearest Neighbour (TSP Comparison)
+
+Both solve TSP but with different guarantees:
+
+| Metric | Held-Karp (Exact) | Nearest Neighbour (Heuristic) |
+|--------|-------------------|-------------------------------|
+| **Guarantee** | Globally optimal | No guarantee |
+| **Time** | O(n² · 2ⁿ) | O(n²) |
+| **Space** | O(n · 2ⁿ) | O(n) |
+| **Practical limit** | n ≤ 20 | Any n |
+| **Typical quality** | 100% optimal | ~80% of optimal |
+
+### Scalability
+
+| n (Cities) | Held-Karp Operations | NN Operations | Speedup |
+|-----------|---------------------|---------------|---------|
 | 5 | 800 | 25 | 32× |
 | 10 | 102,400 | 100 | 1,024× |
 | 12 | 589,824 | 144 | 4,096× |
 | 15 | 7,372,800 | 225 | 32,768× |
 | 20 | 419,430,400 | 400 | 1,048,576× |
 
-> **Key Insight:** Held-Karp's exponential growth (2ⁿ factor) makes it ~4,096× slower than Nearest Neighbour for our 12-city dataset, but it guarantees the optimal solution.
-
-### 3.2 Space Complexity Comparison
-
-| n (Cities) | Held-Karp O(n·2ⁿ) | Nearest Neighbour O(n) | Space Ratio |
-|-----------|-------------------|----------------------|-------------|
-| 12 | 49,152 entries | 12 entries | 4,096× |
-| 15 | 491,520 entries | 15 entries | 32,768× |
-| 20 | 20,971,520 entries | 20 entries | 1,048,576× |
-
-### 3.3 Solution Quality
-
-| Metric | Held-Karp | Nearest Neighbour |
-|--------|-----------|-------------------|
-| **Guarantee** | Globally optimal | No guarantee |
-| **Worst-case ratio** | 1.0 (exact) | O(log n) × optimal |
-| **Typical ratio** | 1.0 | 1.2–1.25 × optimal |
-| **Consistency** | Always same result | Varies by start city |
+**Conclusion:** For our 12-city network, Held-Karp runs in ~40ms — perfectly feasible. For networks > 20 cities, switch to Nearest Neighbour.
 
 ---
 
-## 4. Empirical Results (12-City Cold-Chain Network)
+## 6. Dijkstra vs A* (Path-finding Comparison)
 
-*Results from running both algorithms on our sample dataset starting from Delhi (DEL):*
+Both find shortest paths, but A* is used specifically for rerouting:
 
-| Metric | Held-Karp | Nearest Neighbour | Difference |
-|--------|-----------|-------------------|------------|
-| **Total Cost** | Optimal (baseline) | ~20-25% higher | — |
-| **Execution Time** | ~50-200 ms | < 1 ms | ~100-200× faster |
-| **Path Quality** | Best possible | Good but suboptimal | — |
-| **DP States Used** | ~49,152 | 0 (no DP) | — |
+| Metric | Dijkstra | A* Search |
+|--------|----------|-----------|
+| **Purpose in pipeline** | Normal shortest path | Rerouting on failures |
+| **Uses heuristic** | No (uninformed) | Yes (Haversine) |
+| **Handles blocked edges** | No | Yes |
+| **Optimality** | Optimal | Optimal (with admissible heuristic) |
+| **Typical nodes explored** | More | Fewer (guided by heuristic) |
 
----
-
-## 5. When to Use Each Algorithm
-
-### Use Held-Karp When:
-- ✅ Number of cities ≤ 20
-- ✅ Optimal solution is critical (high-value cargo, pharmaceutical delivery)
-- ✅ Computation time is acceptable (offline planning)
-- ✅ Cost savings from optimality outweigh computation cost
-
-### Use Nearest Neighbour When:
-- ✅ Number of cities > 20 (Held-Karp becomes infeasible)
-- ✅ Real-time or interactive applications
-- ✅ Approximate solution is acceptable
-- ✅ Quick initial estimate before refinement
-- ✅ Memory-constrained environments
-
----
-
-## 6. Scalability Analysis
-
-```
-                    Time Growth Comparison
-    
-    Held-Karp:     |████████████████████████████████████████| Exponential
-    Nearest Nbr:   |████|                                    Quadratic
-    
-    n=5   → HK: 800          NN: 25
-    n=10  → HK: 102,400      NN: 100
-    n=15  → HK: 7,372,800    NN: 225
-    n=20  → HK: 419,430,400  NN: 400
-    n=25  → HK: ~21 billion  NN: 625     ← HK becomes impractical
-```
+A* explores fewer nodes than Dijkstra because the Haversine heuristic guides the search toward the goal.
 
 ---
 
 ## 7. Conclusion
 
-| Aspect | Winner |
-|--------|--------|
-| **Speed** | 🏆 Nearest Neighbour |
-| **Memory** | 🏆 Nearest Neighbour |
-| **Solution Quality** | 🏆 Held-Karp |
-| **Scalability** | 🏆 Nearest Neighbour |
-| **Reliability** | 🏆 Held-Karp |
+The pipeline approach demonstrates how classical DAA algorithms solve **real-world problems** when combined:
 
-**For our 12-city cold-chain network**, Held-Karp is the preferred choice because:
-1. 12 cities is well within the feasible range (n ≤ 20)
-2. Cold-chain logistics involve high-value cargo where optimal routing saves significant cost
-3. Route planning is typically done offline, so higher computation time is acceptable
+1. **Knapsack** ensures maximum cargo value within constraints
+2. **Held-Karp** produces the mathematically optimal delivery route
+3. **Dijkstra** minimizes cost for each route segment with temperature safety
+4. **A*** provides resilience against infrastructure failures
 
-**Nearest Neighbour** remains valuable as a quick baseline and for scenarios requiring instant results or handling larger networks.
+All five algorithms execute within **50ms total** for our 12-city network, making the system suitable for real-time logistics planning.
 
 ---
 
-*Report prepared as part of the DAA Course Project, RVCE.*
+*Report prepared as part of the DAA Course Project, RVCE 2025–26.*
