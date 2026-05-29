@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Cold-Chain Logistics Optimizer — Interactive graph-based route planning and cargo optimization for cold-chain logistics using advanced algorithms.">
+    <title>Cold-Chain Logistics Optimizer | DAA Project</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- Cytoscape.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- ── Header ─────────────────────────────────────────────────────── -->
+    <header id="app-header">
+        <div class="header-content">
+            <div class="logo-group">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="16" cy="16" r="14" stroke="url(#grad1)" stroke-width="2.5"/>
+                        <path d="M10 20L16 8L22 20" stroke="url(#grad1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="16" cy="14" r="2" fill="#06d6a0"/>
+                        <circle cx="11" cy="20" r="1.5" fill="#118ab2"/>
+                        <circle cx="21" cy="20" r="1.5" fill="#ef476f"/>
+                        <defs>
+                            <linearGradient id="grad1" x1="0" y1="0" x2="32" y2="32">
+                                <stop stop-color="#06d6a0"/>
+                                <stop offset="1" stop-color="#118ab2"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                <div>
+                    <h1>Cold-Chain Optimizer</h1>
+                    <p class="subtitle">DAA Graph Algorithm Visualizer</p>
+                </div>
+            </div>
+            <div class="header-badges">
+                <span class="badge badge-green" id="api-status">● API Connected</span>
+                <span class="badge badge-blue">12 Cities</span>
+                <span class="badge badge-purple">5 Algorithms</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- ── Main Layout ────────────────────────────────────────────────── -->
+    <main id="app-main">
+        <!-- Sidebar -->
+        <aside id="sidebar">
+            <!-- Algorithm Selector -->
+            <div class="panel" id="algo-panel">
+                <h2 class="panel-title">
+                    <span class="panel-icon">⚡</span>
+                    Algorithm
+                </h2>
+                <div class="algo-grid" id="algo-grid">
+                    <button class="algo-btn active" data-algo="held-karp" id="btn-held-karp">
+                        <span class="algo-tag exact">Exact</span>
+                        <span class="algo-name">Held-Karp TSP</span>
+                        <span class="algo-complexity">O(n²·2ⁿ)</span>
+                    </button>
+                    <button class="algo-btn" data-algo="nearest-neighbour" id="btn-nearest-neighbour">
+                        <span class="algo-tag heuristic">Heuristic</span>
+                        <span class="algo-name">Nearest Neighbour</span>
+                        <span class="algo-complexity">O(n²)</span>
+                    </button>
+                    <button class="algo-btn" data-algo="dijkstra" id="btn-dijkstra">
+                        <span class="algo-tag shortest">Shortest</span>
+                        <span class="algo-name">Dijkstra</span>
+                        <span class="algo-complexity">O((V+E)log V)</span>
+                    </button>
+                    <button class="algo-btn" data-algo="astar" id="btn-astar">
+                        <span class="algo-tag informed">Informed</span>
+                        <span class="algo-name">A* Search</span>
+                        <span class="algo-complexity">O(E·log V)</span>
+                    </button>
+                    <button class="algo-btn" data-algo="knapsack" id="btn-knapsack">
+                        <span class="algo-tag dp">DP</span>
+                        <span class="algo-name">0/1 Knapsack</span>
+                        <span class="algo-complexity">O(n·W)</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Parameters Panel -->
+            <div class="panel" id="params-panel">
+                <h2 class="panel-title">
+                    <span class="panel-icon">⚙️</span>
+                    Parameters
+                </h2>
+                <div id="params-container">
+                    <!-- TSP params (default) -->
+                    <div class="param-group" id="params-tsp">
+                        <label class="param-label" for="tsp-start">Start City</label>
+                        <select class="param-select" id="tsp-start"></select>
+                    </div>
+                    <!-- Dijkstra / A* params -->
+                    <div class="param-group hidden" id="params-path">
+                        <label class="param-label" for="path-source">Source City</label>
+                        <select class="param-select" id="path-source"></select>
+                        <label class="param-label" for="path-dest">Destination City</label>
+                        <select class="param-select" id="path-dest"></select>
+                    </div>
+                    <!-- A* blocked edges -->
+                    <div class="param-group hidden" id="params-blocked">
+                        <label class="param-label">Blocked Edges</label>
+                        <p class="param-hint">Click edges on the graph to block/unblock them</p>
+                        <div id="blocked-edges-list" class="blocked-list"></div>
+                        <button class="btn-small" id="clear-blocked">Clear All Blocked</button>
+                    </div>
+                    <!-- Dijkstra temp penalty -->
+                    <div class="param-group hidden" id="params-temp">
+                        <label class="param-label toggle-label">
+                            <input type="checkbox" id="temp-penalty" checked>
+                            <span class="toggle-slider"></span>
+                            Temperature Penalty
+                        </label>
+                    </div>
+                    <!-- Knapsack params -->
+                    <div class="param-group hidden" id="params-knapsack">
+                        <label class="param-label" for="knapsack-capacity">Truck Capacity (kg)</label>
+                        <input type="number" class="param-input" id="knapsack-capacity" value="2000" min="100" max="50000">
+                    </div>
+                </div>
+
+                <button class="btn-run" id="btn-run">
+                    <span class="btn-run-icon">▶</span>
+                    Run Algorithm
+                </button>
+            </div>
+
+            <!-- Results Panel -->
+            <div class="panel" id="results-panel">
+                <h2 class="panel-title">
+                    <span class="panel-icon">📊</span>
+                    Results
+                </h2>
+                <div id="results-container">
+                    <div class="results-placeholder">
+                        <span class="placeholder-icon">🗺️</span>
+                        <p>Select an algorithm and click <strong>Run</strong> to see results</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Graph Visualization -->
+        <section id="graph-section">
+            <div class="graph-toolbar">
+                <div class="toolbar-left">
+                    <button class="toolbar-btn" id="btn-fit" title="Fit to view">⊞ Fit</button>
+                    <button class="toolbar-btn" id="btn-reset" title="Reset view">↺ Reset</button>
+                </div>
+                <div class="toolbar-center" id="graph-info">
+                    <span class="info-chip" id="info-nodes">12 nodes</span>
+                    <span class="info-chip" id="info-edges">23 edges</span>
+                </div>
+                <div class="toolbar-right">
+                    <div class="legend">
+                        <span class="legend-item"><span class="legend-dot" style="background:#06d6a0"></span>Moderate</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:#ef476f"></span>Hot</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:#118ab2"></span>Cold</span>
+                    </div>
+                </div>
+            </div>
+            <div id="cy"></div>
+            <div class="graph-overlay hidden" id="loading-overlay">
+                <div class="spinner"></div>
+                <p>Computing...</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- ── Knapsack Modal ─────────────────────────────────────────────── -->
+    <div class="modal-overlay hidden" id="knapsack-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>🎒 Cargo Load Optimization</h3>
+                <button class="modal-close" id="modal-close">✕</button>
+            </div>
+            <div class="modal-body" id="knapsack-results"></div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/api.js"></script>
+    <script src="js/graph.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
