@@ -179,6 +179,34 @@ class Graph:
         """Return sorted list of all node IDs. Time: O(V log V)"""
         return sorted(self.nodes.keys())
 
+    def get_reachable_nodes(self, start_node: str, blocked_edges: Optional[list[tuple[str, str]]] = None) -> set[str]:
+        """
+        Perform BFS to find all nodes reachable from start_node.
+        Respects blocked edges.
+        """
+        if start_node not in self.nodes:
+            return set()
+            
+        blocked = set()
+        if blocked_edges:
+            for s, t in blocked_edges:
+                blocked.add((s, t))
+                blocked.add((t, s)) # Treat blocked edges as undirected for simplicity
+
+        visited = {start_node}
+        queue = [start_node]
+        
+        while queue:
+            current = queue.pop(0)
+            for neighbor_id in self.get_neighbors(current).keys():
+                if (current, neighbor_id) in blocked:
+                    continue
+                if neighbor_id not in visited:
+                    visited.add(neighbor_id)
+                    queue.append(neighbor_id)
+                    
+        return visited
+
     def to_dict(self) -> dict:
         """
         Serialize the entire graph for API response / frontend rendering.

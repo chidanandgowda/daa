@@ -58,8 +58,10 @@ def knapsack_01(
     Time:  O(n · W)
     Space: O(n · W)
     """
+    # We use a multiplier of 10 to support 1 decimal place of floating-point weight.
+    MULTIPLIER = 10
     n = len(items)
-    W = int(capacity)
+    W = int(float(capacity) * MULTIPLIER)
 
     if n == 0 or W <= 0:
         return {
@@ -72,7 +74,7 @@ def knapsack_01(
         }
 
     # Extract weights and values
-    weights = [int(item["weight_kg"]) for item in items]
+    weights = [int(float(item["weight_kg"]) * MULTIPLIER) for item in items]
     values = [item["value"] for item in items]
 
     # ── Phase 1: Build DP Table ──────────────────────────────────────────
@@ -100,7 +102,7 @@ def knapsack_01(
 
     selected.reverse()  # Maintain original order
 
-    total_weight = sum(int(item["weight_kg"]) for item in selected)
+    total_weight = sum(float(item["weight_kg"]) for item in selected)
     total_value = sum(item["value"] for item in selected)
 
     return {

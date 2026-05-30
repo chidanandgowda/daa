@@ -204,6 +204,10 @@ const UI = (() => {
         els.infoEdges.textContent = edgeCount + ' edges';
     }
 
+    function showResultsContainer(htmlContent) {
+        els.resultsContainer.innerHTML = htmlContent;
+    }
+
     function initEvents() {
         els.clearBlocked.addEventListener('click', function() {
             GraphViz.clearBlockedEdges();
@@ -215,6 +219,7 @@ const UI = (() => {
         cacheElements: cacheElements,
         populateDropdowns: populateDropdowns,
         showPipelineResults: showPipelineResults,
+        showResultsContainer: showResultsContainer,
         updateBlockedEdgesUI: updateBlockedEdgesUI,
         setLoading: setLoading,
         showError: showError,

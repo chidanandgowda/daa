@@ -30,11 +30,16 @@ class KnapsackRequest(BaseModel):
     items: Optional[list[dict]] = Field(None, description="Custom cargo items")
 
 
+class GenerateGraphRequest(BaseModel):
+    num_cities: int = Field(12, description="Number of random cities to generate", ge=3, le=50)
+
+
 class PipelineRequest(BaseModel):
     """Full pipeline request — runs all algorithms together."""
     start: str = Field(..., description="Starting/depot city node ID", examples=["DEL"])
     capacity: float = Field(2000, description="Truck capacity in kg", gt=0)
     tsp_method: str = Field("held-karp", description="TSP solver: 'held-karp' or 'nearest-neighbour'")
+    temp_penalty: bool = Field(True, description="Apply temperature penalties in Dijkstra")
     blocked_edges: Optional[list[list[str]]] = Field(None, description="Blocked edges for A* rerouting")
     items: Optional[list[dict]] = Field(None, description="Custom cargo items (uses defaults if null)")
 

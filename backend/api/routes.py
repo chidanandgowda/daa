@@ -23,10 +23,12 @@ from models.schemas import (
     AStarRequest,
     KnapsackRequest,
     PipelineRequest,
+    GenerateGraphRequest,
     AlgorithmResult,
     GraphResponse,
 )
 from data.sample_data import build_sample_graph, CARGO_ITEMS
+from data.dynamic_graph import generate_random_graph
 from algorithms.held_karp import held_karp_tsp
 from algorithms.dijkstra import dijkstra
 from algorithms.astar import astar_search
@@ -58,6 +60,22 @@ def get_graph():
     )
 
 
+@router.post("/graph/generate", response_model=GraphResponse)
+def generate_new_graph(request: GenerateGraphRequest):
+    """
+    Generate a new random logistics graph and update the server state.
+    """
+    global graph
+    graph = generate_random_graph(request.num_cities)
+    data = graph.to_dict()
+    return GraphResponse(
+        nodes=data["nodes"],
+        edges=data["edges"],
+        node_count=len(graph.nodes),
+        edge_count=len(graph.get_all_edges()),
+    )
+
+
 @router.get("/cargo")
 def get_cargo_items():
     """Return the list of available cargo items for knapsack optimization."""
@@ -78,6 +96,20 @@ def run_pipeline(request: PipelineRequest):
 
     All algorithms work together on the same graph and data.
     """
+    blocked = None
+    if request.blocked_edges:
+        blocked = [(e[0], e[1]) for e in request.blocked_edges]
+
+    # Pre-flight Connectivity Check
+    reachable = graph.get_reachable_nodes(request.start, blocked)
+    if len(reachable) < len(graph.nodes):
+        unreachable = set(graph.nodes.keys()) - reachable
+        unreachable_names = [graph.nodes[nid].name for nid in unreachable]
+        raise HTTPException(
+            status_code=400,
+            detail=f"Simulation Failed: Due to blocked edges, {len(unreachable_names)} cities are completely cut off from the network (e.g. {unreachable_names[0]})."
+        )
+
     results = {}
     total_start = time.perf_counter()
 
@@ -102,10 +134,10 @@ def run_pipeline(request: PipelineRequest):
     try:
         t0 = time.perf_counter()
         if request.tsp_method == "held-karp":
-            tsp_result = held_karp_tsp(graph, request.start)
+            tsp_result = held_karp_tsp(graph, request.start, request.temp_penalty)
             tsp_name = "Held-Karp (Exact TSP)"
         else:
-            tsp_result = nearest_neighbour_tsp(graph, request.start)
+            tsp_result = nearest_neighbour_tsp(graph, request.start, request.temp_penalty)
             tsp_name = "Nearest Neighbour (Heuristic TSP)"
         tsp_time = (time.perf_counter() - t0) * 1000
         results["tsp"] = {
@@ -125,7 +157,7 @@ def run_pipeline(request: PipelineRequest):
         t0 = time.perf_counter()
         for i in range(len(tsp_path) - 1):
             try:
-                seg = dijkstra(graph, tsp_path[i], tsp_path[i + 1])
+                seg = dijkstra(graph, tsp_path[i], tsp_path[i + 1], request.temp_penalty)
                 segments.append({
                     "from": tsp_path[i],
                     "to": tsp_path[i + 1],

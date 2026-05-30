@@ -18,35 +18,13 @@ the trade-off between polynomial runtime and solution quality.
 
 from __future__ import annotations
 from models.graph import Graph
+from algorithms.dijkstra import dijkstra
 
 
-def nearest_neighbour_tsp(graph: Graph, start: str) -> dict:
+def nearest_neighbour_tsp(graph: Graph, start: str, temp_penalty: bool = True) -> dict:
     """
     Approximate TSP using the Nearest Neighbour greedy heuristic.
-
-    Algorithm:
-      1. Start at the given city.
-      2. At each step, move to the nearest unvisited city.
-      3. After all cities are visited, return to the start.
-
-    This is a constructive heuristic — it builds the tour incrementally
-    without backtracking or improvement.
-
-    Args:
-        graph: The logistics network graph.
-        start: The starting city node_id.
-
-    Returns:
-        dict with keys:
-            - path: list of node_ids in tour order (ends at start)
-            - total_cost: total tour cost
-            - complexity: time/space complexity strings
-
-    Raises:
-        ValueError: If start node not in graph.
-
-    Time:  O(n²)
-    Space: O(n)
+    Supports sparse graphs by using Dijkstra for step-wise shortest paths.
     """
     nodes = graph.get_node_ids()
     n = len(nodes)
@@ -55,6 +33,12 @@ def nearest_neighbour_tsp(graph: Graph, start: str) -> dict:
         raise ValueError(f"Start node '{start}' not found in graph.")
     if n < 2:
         raise ValueError("Graph must have at least 2 nodes for TSP.")
+
+    # ── Phase 0: Pre-calculate distance matrix ───────────────────────────
+    dist_matrix = {}
+    for node_id in nodes:
+        res = dijkstra(graph, node_id, None, temp_penalty)
+        dist_matrix[node_id] = res["distances"]
 
     # ── Greedy Construction ──────────────────────────────────────────────
     visited = {start}
@@ -67,31 +51,18 @@ def nearest_neighbour_tsp(graph: Graph, start: str) -> dict:
         best_next = None
         best_cost = float("inf")
 
-        for neighbor_id, edge in graph.get_neighbors(current).items():
-            if neighbor_id not in visited and edge.cost < best_cost:
-                best_cost = edge.cost
+        for neighbor_id, cost in dist_matrix[current].items():
+            if neighbor_id not in visited and cost < best_cost:
+                best_cost = cost
                 best_next = neighbor_id
-
-        if best_next is None:
-            # No direct neighbor found — try all unvisited nodes
-            for node_id in nodes:
-                if node_id not in visited:
-                    cost = graph.get_weight(current, node_id)
-                    if cost < best_cost:
-                        best_cost = cost
-                        best_next = node_id
 
         if best_next is None:
             # Cannot complete the tour (disconnected graph)
             return {
                 "path": path,
                 "total_cost": total_cost,
-                "complexity": {
-                    "time": f"O(n²) = O({n}²) = O({n * n:,})",
-                    "space": f"O(n) = O({n})",
-                },
+                "complexity": {"time": "O(n²)", "space": "O(n²)"},
                 "error": "Cannot complete tour — graph is not fully connected.",
-                "visited_count": len(visited),
             }
 
         visited.add(best_next)
@@ -100,15 +71,12 @@ def nearest_neighbour_tsp(graph: Graph, start: str) -> dict:
         current = best_next
 
     # ── Return to start ──────────────────────────────────────────────────
-    return_cost = graph.get_weight(current, start)
+    return_cost = dist_matrix[current].get(start, float("inf"))
     if return_cost == float("inf"):
         return {
             "path": path,
             "total_cost": total_cost,
-            "complexity": {
-                "time": f"O(n²) = O({n}²) = O({n * n:,})",
-                "space": f"O(n) = O({n})",
-            },
+            "complexity": {"time": "O(n²)", "space": "O(n²)"},
             "error": f"Cannot return to start '{start}' from '{current}'.",
         }
 
@@ -118,8 +86,5 @@ def nearest_neighbour_tsp(graph: Graph, start: str) -> dict:
     return {
         "path": path,
         "total_cost": round(total_cost, 2),
-        "complexity": {
-            "time": f"O(n²) = O({n}²) = O({n * n:,})",
-            "space": f"O(n) = O({n})",
-        },
+        "complexity": {"time": "O(n²)", "space": "O(n²)"},
     }

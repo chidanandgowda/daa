@@ -28,6 +28,7 @@ const API = (() => {
 
     return {
         getGraph()              { return request('/graph'); },
+        generateGraph(numCities) { return request('/graph/generate', { method: 'POST', body: JSON.stringify({ num_cities: numCities }) }); },
         getCargoItems()         { return request('/cargo'); },
 
         /** Run the full optimization pipeline */

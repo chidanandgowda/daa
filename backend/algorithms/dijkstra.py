@@ -19,43 +19,15 @@ from models.graph import Graph
 def dijkstra(
     graph: Graph,
     source: str,
-    destination: str,
+    destination: str | None = None,
     temp_penalty: bool = True,
 ) -> dict:
     """
-    Find the shortest path from source to destination using Dijkstra's algorithm.
-
-    Uses a min-heap priority queue for efficient extraction of the minimum-cost
-    node at each step. Optionally applies temperature-zone penalties to edge
-    weights to model cold-chain safety.
-
-    Temperature Penalty Model:
-        If source or target node is in a 'hot' zone, edge cost is multiplied
-        by 1.15 (15% surcharge for additional refrigeration).
-
-    Args:
-        graph:        The logistics network graph.
-        source:       Starting city node_id.
-        destination:  Target city node_id.
-        temp_penalty: Whether to apply temperature-based cost adjustments.
-
-    Returns:
-        dict with keys:
-            - path: list of node_ids from source to destination
-            - total_cost: total path cost
-            - distances: dict of shortest distances from source to all visited nodes
-            - nodes_explored: number of nodes popped from the priority queue
-            - complexity: time/space complexity strings
-
-    Raises:
-        ValueError: If source or destination not in graph.
-
-    Time:  O((V + E) · log V)
-    Space: O(V)
+    Find the shortest path from source to destination (or all nodes if destination is None).
     """
     if source not in graph.nodes:
         raise ValueError(f"Source node '{source}' not found in graph.")
-    if destination not in graph.nodes:
+    if destination and destination not in graph.nodes:
         raise ValueError(f"Destination node '{destination}' not found in graph.")
 
     V = len(graph.nodes)
@@ -82,7 +54,7 @@ def dijkstra(
         nodes_explored += 1
 
         # Early termination if we reached the destination
-        if u == destination:
+        if destination and u == destination:
             break
 
         # Relax all neighbors of u
@@ -110,6 +82,19 @@ def dijkstra(
                 heapq.heappush(pq, (new_dist, neighbor_id))
 
     # ── Reconstruct Path ─────────────────────────────────────────────────
+    # If no destination specified, return distances to all reachable nodes
+    if not destination:
+        return {
+            "path": [],
+            "total_cost": 0,
+            "distances": {k: round(v, 2) for k, v in dist.items() if v != INF},
+            "nodes_explored": nodes_explored,
+            "complexity": {
+                "time": f"O((V + E) · log V) = O(({V} + {E}) · log {V})",
+                "space": f"O(V) = O({V})",
+            },
+        }
+
     if dist[destination] == INF:
         return {
             "path": [],

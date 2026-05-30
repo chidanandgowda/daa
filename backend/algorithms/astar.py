@@ -50,17 +50,12 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     return R * c
 
 
-def _heuristic(graph: Graph, node_id: str, goal_id: str) -> float:
+def _heuristic(graph: Graph, node_id: str, goal_id: str, min_cost_per_km: float) -> float:
     """
     Compute the heuristic estimate (h) from node to goal.
 
     Uses Haversine distance scaled by a cost factor to estimate
     the minimum possible cost (ensures admissibility).
-
-    The scaling factor (cost_per_km ≈ 12) is a conservative lower bound
-    derived from the cheapest edge in the sample dataset.
-
-    Time: O(1)
     """
     node = graph.nodes.get(node_id)
     goal = graph.nodes.get(goal_id)
@@ -70,10 +65,8 @@ def _heuristic(graph: Graph, node_id: str, goal_id: str) -> float:
     # Haversine gives straight-line distance
     dist_km = haversine_distance(node.latitude, node.longitude, goal.latitude, goal.longitude)
 
-    # Scale by minimum cost-per-km (conservative estimate for admissibility)
-    # min cost/km from dataset ≈ 2100/149 ≈ 14.09, use 12 to stay admissible
-    COST_PER_KM = 12.0
-    return dist_km * COST_PER_KM
+    # Use the dynamic minimum cost-per-km to ensure admissibility
+    return dist_km * min_cost_per_km
 
 
 def astar_search(
@@ -85,34 +78,6 @@ def astar_search(
     """
     Find the optimal path from source to destination using A* search,
     with optional edge failure simulation.
-
-    A* maintains two scores for each node:
-      g(n) = actual cost from source to n
-      f(n) = g(n) + h(n), where h(n) is the heuristic estimate to goal
-
-    Nodes are expanded in order of lowest f(n), combining the best of
-    Dijkstra (optimal) and greedy best-first (fast).
-
-    Args:
-        graph:         The logistics network graph.
-        source:        Starting city node_id.
-        destination:   Target city node_id.
-        blocked_edges: List of (source, target) tuples representing
-                       failed/blocked routes to avoid.
-
-    Returns:
-        dict with keys:
-            - path: list of node_ids from source to destination
-            - total_cost: total path cost
-            - nodes_explored: number of nodes expanded
-            - blocked_edges: list of edges that were blocked
-            - complexity: time/space complexity strings
-
-    Raises:
-        ValueError: If source or destination not in graph.
-
-    Time:  O(E · log V) with admissible heuristic
-    Space: O(V)
     """
     if source not in graph.nodes:
         raise ValueError(f"Source node '{source}' not found in graph.")
@@ -121,6 +86,18 @@ def astar_search(
 
     V = len(graph.nodes)
     E = len(graph.get_all_edges())
+
+    # Pre-calculate minimum cost per km in the current graph for the heuristic
+    # This ensures the heuristic is always admissible for any graph.
+    all_edges = []
+    for neighbors in graph.adj.values():
+        all_edges.extend(neighbors.values())
+    
+    if not all_edges:
+        min_cost_per_km = 12.0 # Fallback
+    else:
+        # Avoid division by zero and pick a safe minimum
+        min_cost_per_km = min((edge.cost / max(edge.distance_km, 1.0)) for edge in all_edges)
 
     # Build set of blocked edges for O(1) lookup
     blocked = set()
@@ -135,7 +112,7 @@ def astar_search(
     g_score[source] = 0
 
     f_score = {node_id: INF for node_id in graph.nodes}
-    f_score[source] = _heuristic(graph, source, destination)
+    f_score[source] = _heuristic(graph, source, destination, min_cost_per_km)
 
     came_from: dict[str, str | None] = {node_id: None for node_id in graph.nodes}
 
@@ -173,7 +150,7 @@ def astar_search(
             if tentative_g < g_score[neighbor_id]:
                 came_from[neighbor_id] = current
                 g_score[neighbor_id] = tentative_g
-                f_score[neighbor_id] = tentative_g + _heuristic(graph, neighbor_id, destination)
+                f_score[neighbor_id] = tentative_g + _heuristic(graph, neighbor_id, destination, min_cost_per_km)
                 counter += 1
                 heapq.heappush(open_set, (f_score[neighbor_id], counter, neighbor_id))
 

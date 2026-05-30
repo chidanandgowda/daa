@@ -249,6 +249,55 @@ const GraphViz = (() => {
         });
     }
 
+    /** Animate the pipeline step-by-step */
+    async function animatePipeline(pipeline) {
+        if (!cy) return;
+        clearHighlights();
+        cy.elements().addClass('dimmed');
+
+        const delay = (ms) => new Promise(res => setTimeout(res, ms));
+
+        // Animate TSP
+        if (pipeline.tsp && pipeline.tsp.result && pipeline.tsp.result.path) {
+            let path = pipeline.tsp.result.path;
+            for (let i = 0; i < path.length; i++) {
+                let node = cy.getElementById(path[i]);
+                if (node.length) {
+                    node.removeClass('dimmed').addClass('highlighted');
+                    node.style({ 'background-color': COLORS.tsp, 'border-color': COLORS.tsp });
+                    if (i === 0) node.addClass('start-node');
+                }
+                
+                await delay(300); // Wait 300ms before drawing edge
+                
+                if (i < path.length - 1) {
+                    highlightEdge(path[i], path[i + 1], COLORS.tsp);
+                    await delay(300); // Wait 300ms before next node
+                }
+            }
+        }
+
+        await delay(500);
+
+        // Animate Reroutes (A*)
+        if (pipeline.astar && pipeline.astar.segments) {
+            for (let seg of pipeline.astar.segments) {
+                if (seg.path && seg.path.length >= 2 && seg.was_affected) {
+                    for (let i = 0; i < seg.path.length - 1; i++) {
+                        highlightEdge(seg.path[i], seg.path[i + 1], COLORS.astar);
+                        await delay(200);
+                    }
+                    seg.path.forEach(function(nodeId) {
+                        var node = cy.getElementById(nodeId);
+                        if (node.length) {
+                            node.removeClass('dimmed').addClass('highlighted');
+                        }
+                    });
+                }
+            }
+        }
+    }
+
     function highlightEdge(src, tgt, color) {
         var edge = cy.getElementById(src + '-' + tgt);
         if (!edge.length) edge = cy.getElementById(tgt + '-' + src);
@@ -299,6 +348,7 @@ const GraphViz = (() => {
         highlightTSPPath: highlightTSPPath,
         highlightDijkstraSegments: highlightDijkstraSegments,
         highlightAStarSegments: highlightAStarSegments,
+        animatePipeline: animatePipeline,
         clearHighlights: clearHighlights,
         getBlockedEdges: getBlockedEdges,
         clearBlockedEdges: clearBlockedEdges,

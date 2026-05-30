@@ -14,37 +14,13 @@ Reference: Held, M. & Karp, R. (1962). "A Dynamic Programming Approach to
 
 from __future__ import annotations
 from models.graph import Graph
+from algorithms.dijkstra import dijkstra
 
 
-def held_karp_tsp(graph: Graph, start: str) -> dict:
+def held_karp_tsp(graph: Graph, start: str, temp_penalty: bool = True) -> dict:
     """
     Solve TSP exactly using the Held-Karp DP algorithm.
-
-    The algorithm works in two phases:
-      Phase 1 — Build DP table:
-        dp[S][i] = minimum cost to visit all cities in subset S,
-                   ending at city i, starting from 'start'.
-        S is represented as a bitmask where bit j = 1 means city j is visited.
-
-      Phase 2 — Reconstruct optimal path:
-        Backtrack through the DP table to find the actual tour.
-
-    Args:
-        graph: The logistics network graph.
-        start: The starting city node_id.
-
-    Returns:
-        dict with keys:
-            - path: list of node_ids in optimal tour order
-            - total_cost: minimum tour cost
-            - dp_states_computed: number of DP states filled
-            - complexity: dict with time and space complexity strings
-
-    Raises:
-        ValueError: If start node not in graph or graph has < 2 nodes.
-
-    Time:  O(n² · 2ⁿ)
-    Space: O(n · 2ⁿ)
+    Supports sparse graphs by pre-calculating all-pairs shortest paths.
     """
     nodes = graph.get_node_ids()
     n = len(nodes)
@@ -57,6 +33,21 @@ def held_karp_tsp(graph: Graph, start: str) -> dict:
     # Map node_id → index for bitmask operations
     idx = {node: i for i, node in enumerate(nodes)}
     start_idx = idx[start]
+
+    # ── Phase 0: Pre-calculate distance matrix ───────────────────────────
+    # Since the graph might be sparse, we use Dijkstra to find shortest paths 
+    # between all pairs. This converts the sparse graph into a complete graph 
+    # where weight(u, v) is the shortest path cost.
+    dist_matrix = [[float("inf")] * n for _ in range(n)]
+    for i in range(n):
+        # Dijkstra to all other reachable nodes from nodes[i]
+        res = dijkstra(graph, nodes[i], None, temp_penalty) 
+        for j in range(n):
+            if i == j:
+                dist_matrix[i][j] = 0
+                continue
+            if nodes[j] in res["distances"]:
+                dist_matrix[i][j] = res["distances"][nodes[j]]
 
     # ── Phase 1: Build DP Table ──────────────────────────────────────────
     # dp[visited_mask][current_city] = (min_cost, previous_city_index)
@@ -73,21 +64,17 @@ def held_karp_tsp(graph: Graph, start: str) -> dict:
     # Iterate over all subsets of cities
     for mask in range(1 << n):
         for last in range(n):
-            # Skip if 'last' is not in the current subset
-            if not (mask & (1 << last)):
-                continue
-            if dp[mask][last] == INF:
+            if not (mask & (1 << last)) or dp[mask][last] == INF:
                 continue
 
             # Try extending to each unvisited city
             for next_city in range(n):
                 if mask & (1 << next_city):
-                    continue  # Already visited
+                    continue
 
-                # Get edge weight between last → next_city
-                edge_cost = graph.get_weight(nodes[last], nodes[next_city])
+                edge_cost = dist_matrix[last][next_city]
                 if edge_cost == INF:
-                    continue  # No direct edge
+                    continue
 
                 new_mask = mask | (1 << next_city)
                 new_cost = dp[mask][last] + edge_cost
@@ -102,11 +89,11 @@ def held_karp_tsp(graph: Graph, start: str) -> dict:
     best_last = -1
 
     for last in range(n):
-        if last == start_idx:
-            continue
-        return_cost = graph.get_weight(nodes[last], nodes[start_idx])
-        if return_cost == INF:
-            continue
+        if last == start_idx: continue
+        
+        return_cost = dist_matrix[last][start_idx]
+        if return_cost == INF: continue
+        
         total = dp[FULL_MASK][last] + return_cost
         if total < best_cost:
             best_cost = total
