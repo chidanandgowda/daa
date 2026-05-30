@@ -6,9 +6,15 @@ const UI = (() => {
     const els = {};
 
     function cacheElements() {
+        els.appMain          = document.getElementById('app-main');
+        els.sidebar          = document.getElementById('sidebar');
+        els.resultsPanel     = document.getElementById('results-panel');
         els.resultsContainer = document.getElementById('results-container');
-        els.loadingOverlay   = document.getElementById('loading-overlay');
+        els.statusHud        = document.getElementById('status-hud');
+        els.hudTitle         = document.getElementById('hud-title');
+        els.hudDesc          = document.getElementById('hud-desc');
         els.btnRun           = document.getElementById('btn-run');
+        els.btnResetSim      = document.getElementById('btn-reset-sim');
         els.tspStart         = document.getElementById('tsp-start');
         els.knapsackCap      = document.getElementById('knapsack-capacity');
         els.blockedList      = document.getElementById('blocked-edges-list');
@@ -173,20 +179,44 @@ const UI = (() => {
         }).join('');
     }
 
-    function setLoading(loading) {
-        if (loading) {
-            els.loadingOverlay.classList.remove('hidden');
-            els.btnRun.classList.add('loading');
-            els.btnRun.textContent = 'Computing...';
-        } else {
-            els.loadingOverlay.classList.add('hidden');
-            els.btnRun.classList.remove('loading');
-            els.btnRun.textContent = '▶ Run Full Pipeline';
-        }
+    function startSimulationPhase() {
+        els.sidebar.classList.add('hidden-slide');
+        els.resultsPanel.classList.add('hidden-slide');
+        els.statusHud.classList.remove('hidden');
+        els.appMain.classList.remove('sidebar-open');
+        updateHud('Initializing Simulation...', 'Connecting to backend cluster...');
+        setTimeout(function() { GraphViz.resize(); }, 400);
+    }
+
+    function showResultsPhase() {
+        els.statusHud.classList.add('hidden');
+        els.resultsPanel.classList.remove('hidden-slide');
+        els.appMain.classList.add('sidebar-open');
+        setTimeout(function() { GraphViz.resize(); }, 400);
+    }
+
+    function resetToSetupPhase() {
+        els.resultsPanel.classList.add('hidden-slide');
+        els.statusHud.classList.add('hidden');
+        els.sidebar.classList.remove('hidden-slide');
+        els.appMain.classList.add('sidebar-open');
+        els.resultsContainer.innerHTML = '';
+        GraphViz.reset();
+        updateBlockedEdgesUI([]);
+        setTimeout(function() { GraphViz.resize(); }, 400);
+    }
+
+    function updateHud(title, desc) {
+        els.hudTitle.textContent = title;
+        els.hudDesc.textContent = desc;
     }
 
     function showError(msg) {
+        els.statusHud.classList.add('hidden');
+        els.resultsPanel.classList.remove('hidden-slide');
+        els.appMain.classList.add('sidebar-open');
         els.resultsContainer.innerHTML = '<div class="error-msg">⚠ ' + msg + '</div>';
+        setTimeout(function() { GraphViz.resize(); }, 400);
     }
 
     function setApiStatus(connected) {
@@ -213,6 +243,33 @@ const UI = (() => {
             GraphViz.clearBlockedEdges();
             updateBlockedEdgesUI([]);
         });
+        
+        if (els.btnResetSim) {
+            els.btnResetSim.addEventListener('click', resetToSetupPhase);
+        }
+
+        // Accordion logic for setup panels
+        document.querySelectorAll('#sidebar .step-header').forEach(function(header) {
+            header.addEventListener('click', function() {
+                var panel = header.closest('.panel');
+                
+                // If it's already open, do nothing (or close it, depending on preference. Usually better to keep at least one open).
+                // Let's make it toggleable, but collapse others.
+                var wasCollapsed = panel.classList.contains('collapsed');
+                
+                // Collapse all
+                document.querySelectorAll('#sidebar .panel').forEach(function(p) {
+                    if (p.querySelector('.panel-body')) {
+                        p.classList.add('collapsed');
+                    }
+                });
+                
+                // If it was collapsed, open it
+                if (wasCollapsed) {
+                    panel.classList.remove('collapsed');
+                }
+            });
+        });
     }
 
     return {
@@ -221,7 +278,10 @@ const UI = (() => {
         showPipelineResults: showPipelineResults,
         showResultsContainer: showResultsContainer,
         updateBlockedEdgesUI: updateBlockedEdgesUI,
-        setLoading: setLoading,
+        startSimulationPhase: startSimulationPhase,
+        showResultsPhase: showResultsPhase,
+        resetToSetupPhase: resetToSetupPhase,
+        updateHud: updateHud,
         showError: showError,
         setApiStatus: setApiStatus,
         updateGraphInfo: updateGraphInfo,

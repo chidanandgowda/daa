@@ -332,6 +332,13 @@ const GraphViz = (() => {
 
     function fit() { if (cy) cy.fit(undefined, 50); }
 
+    function resize() {
+        if (cy) {
+            cy.resize();
+            cy.fit(undefined, 50);
+        }
+    }
+
     function reset() {
         clearHighlights();
         clearBlockedEdges();
@@ -354,6 +361,7 @@ const GraphViz = (() => {
         clearBlockedEdges: clearBlockedEdges,
         fit: fit,
         reset: reset,
+        resize: resize,
         getNodeIds: getNodeIds,
     };
 })();

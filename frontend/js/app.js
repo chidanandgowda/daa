@@ -45,24 +45,22 @@ const App = (() => {
     }
 
     async function generateNewGraph() {
-        UI.setLoading(true);
+        UI.startSimulationPhase();
+        UI.updateHud('Generating Network...', 'Building random graph with real Indian cities.');
         try {
             var numCities = parseInt(document.getElementById('gen-cities-count').value) || 15;
             var graphData = await API.generateGraph(numCities);
             GraphViz.init(graphData);
             UI.updateGraphInfo(graphData.node_count, graphData.edge_count);
             UI.populateDropdowns(GraphViz.getNodeIds());
-            UI.updateBlockedEdgesUI([]);
-            UI.showResultsContainer("<div class='results-placeholder'><div class='placeholder-icon'>📦</div><p>New network generated. Configure parameters and run the pipeline.</p></div>");
+            UI.resetToSetupPhase();
         } catch (err) {
             UI.showError('Failed to generate graph: ' + err.message);
-        } finally {
-            UI.setLoading(false);
         }
     }
 
     async function runPipeline() {
-        UI.setLoading(true);
+        UI.startSimulationPhase();
         GraphViz.clearHighlights();
 
         try {
@@ -76,25 +74,35 @@ const App = (() => {
                 start: start,
                 capacity: capacity,
                 tsp_method: tspMethod,
+                temp_penalty: true
             };
             if (blocked.length > 0) {
                 params.blocked_edges = blocked;
             }
 
+            // Phase 2: Simulation / HUD Updates
+            UI.updateHud('Phase 1: Knapsack', 'Packing optimal cargo payload...');
+            
+            // Artificial delay to make it feel like a simulation
+            const delay = (ms) => new Promise(res => setTimeout(res, ms));
+            await delay(800);
+
+            UI.updateHud('Phase 2: TSP & Dijkstra', 'Calculating exact shortest paths...');
+
             // Call pipeline
             var data = await API.runPipeline(params);
 
-            // Display results in sidebar
-            UI.showPipelineResults(data);
-
-            // Highlight and animate on graph
+            // Phase 2.5: Animation
+            UI.updateHud('Visualizing Route', 'Drawing calculated paths on map...');
             var pipeline = data.pipeline;
             await GraphViz.animatePipeline(pipeline);
 
+            // Phase 3: Display Results Panel
+            UI.showPipelineResults(data);
+            UI.showResultsPhase();
+
         } catch (err) {
             UI.showError(err.message);
-        } finally {
-            UI.setLoading(false);
         }
     }
 
