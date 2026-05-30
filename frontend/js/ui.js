@@ -23,6 +23,7 @@ const UI = (() => {
         els.infoNodes        = document.getElementById('info-nodes');
         els.infoEdges        = document.getElementById('info-edges');
         els.pipeSteps        = document.querySelectorAll('.pipe-step');
+        els.btnToggleSidebar = document.getElementById('btn-toggle-sidebar');
     }
 
     function populateDropdowns(nodes) {
@@ -246,6 +247,39 @@ const UI = (() => {
         
         if (els.btnResetSim) {
             els.btnResetSim.addEventListener('click', resetToSetupPhase);
+        }
+
+        if (els.btnToggleSidebar) {
+            els.btnToggleSidebar.addEventListener('click', function() {
+                // Determine which panel is currently active based on phase
+                // If results container has content, we might be in results phase
+                var isResultsPhase = els.statusHud.classList.contains('hidden') && !els.resultsPanel.classList.contains('hidden-slide');
+                var isSetupPhase = els.statusHud.classList.contains('hidden') && !els.sidebar.classList.contains('hidden-slide');
+                
+                var panelToToggle = null;
+                
+                // If simulation is running, disable toggle
+                if (!els.statusHud.classList.contains('hidden')) {
+                    return;
+                }
+
+                var isOpen = els.appMain.classList.contains('sidebar-open');
+                
+                if (isOpen) {
+                    els.appMain.classList.remove('sidebar-open');
+                    els.sidebar.classList.add('hidden-slide');
+                    els.resultsPanel.classList.add('hidden-slide');
+                } else {
+                    els.appMain.classList.add('sidebar-open');
+                    if (els.resultsContainer.innerHTML !== '') {
+                        els.resultsPanel.classList.remove('hidden-slide');
+                    } else {
+                        els.sidebar.classList.remove('hidden-slide');
+                    }
+                }
+                
+                setTimeout(function() { GraphViz.resize(); }, 400);
+            });
         }
 
         // Accordion logic for setup panels
