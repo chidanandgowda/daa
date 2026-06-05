@@ -5,11 +5,22 @@ Configures CORS, mounts API routes, and provides a health check endpoint.
 Run with: uvicorn app.main:app --reload --port 8000
 """
 
-from fastapi import FastAPI
+import logging
+import sys
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from api.routes import router
+
+# Configure logging for Docker stdout/stderr
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Cold-Chain Logistics Optimizer",
@@ -22,6 +33,12 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+# ── Global Exception Handler ─────────────────────────────────────────────
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception during {request.method} {request.url.path}: {exc}", exc_info=True)
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 # ── CORS Configuration ──────────────────────────────────────────────────
 # Allow frontend (served separately or on different port) to call API
