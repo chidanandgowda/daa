@@ -14,11 +14,8 @@ Base URL: /api
 
 from __future__ import annotations
 import time
-import logging
 
 from fastapi import APIRouter, HTTPException
-
-logger = logging.getLogger(__name__)
 
 from models.schemas import (
     TSPRequest,
@@ -99,7 +96,6 @@ def run_pipeline(request: PipelineRequest):
 
     All algorithms work together on the same graph and data.
     """
-    logger.info(f"Starting optimization pipeline. Start: {request.start}, TSP: {request.tsp_method}")
     blocked = None
     if request.blocked_edges:
         blocked = [(e[0], e[1]) for e in request.blocked_edges]
@@ -132,7 +128,6 @@ def run_pipeline(request: PipelineRequest):
             "execution_time_ms": round(knapsack_time, 3),
         }
     except Exception as e:
-        logger.error(f"Error in Knapsack step: {e}", exc_info=True)
         results["knapsack"] = {"error": str(e)}
 
     # ── Step 2: Route Planning (TSP) ─────────────────────────────────
@@ -152,7 +147,6 @@ def run_pipeline(request: PipelineRequest):
             "execution_time_ms": round(tsp_time, 3),
         }
     except Exception as e:
-        logger.error(f"Error in TSP step: {e}", exc_info=True)
         results["tsp"] = {"error": str(e)}
 
     # ── Step 3: Shortest Safe Segments (Dijkstra) ────────────────────
@@ -172,8 +166,7 @@ def run_pipeline(request: PipelineRequest):
                 })
                 if seg["total_cost"] > 0:
                     total_segment_cost += seg["total_cost"]
-            except Exception as e:
-                logger.error(f"Error in Dijkstra step between {tsp_path[i]} and {tsp_path[i + 1]}: {e}", exc_info=True)
+            except Exception:
                 segments.append({
                     "from": tsp_path[i],
                     "to": tsp_path[i + 1],
@@ -206,8 +199,7 @@ def run_pipeline(request: PipelineRequest):
                     "cost": seg["total_cost"],
                     "was_affected": seg["total_cost"] != graph.get_weight(tsp_path[i], tsp_path[i + 1]),
                 })
-            except Exception as e:
-                logger.error(f"Error in A* step between {tsp_path[i]} and {tsp_path[i + 1]}: {e}", exc_info=True)
+            except Exception:
                 rerouted_segments.append({
                     "from": tsp_path[i],
                     "to": tsp_path[i + 1],
@@ -235,7 +227,6 @@ def run_pipeline(request: PipelineRequest):
 def run_held_karp(request: TSPRequest):
     """Solve TSP exactly using the Held-Karp DP algorithm."""
     try:
-        logger.info(f"Running Held-Karp TSP. Start: {request.start}")
         start_time = time.perf_counter()
         result = held_karp_tsp(graph, request.start)
         elapsed_ms = (time.perf_counter() - start_time) * 1000
@@ -245,10 +236,8 @@ def run_held_karp(request: TSPRequest):
             execution_time_ms=round(elapsed_ms, 3),
         )
     except ValueError as e:
-        logger.warning(f"Validation error in Held-Karp TSP: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Algorithm error in Held-Karp TSP: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Algorithm error: {str(e)}")
 
 
@@ -256,7 +245,6 @@ def run_held_karp(request: TSPRequest):
 def run_dijkstra(request: DijkstraRequest):
     """Find shortest path using Dijkstra's algorithm."""
     try:
-        logger.info(f"Running Dijkstra. Source: {request.source}, Dest: {request.destination}")
         start_time = time.perf_counter()
         result = dijkstra(graph, request.source, request.destination, request.temp_penalty)
         elapsed_ms = (time.perf_counter() - start_time) * 1000
@@ -266,10 +254,8 @@ def run_dijkstra(request: DijkstraRequest):
             execution_time_ms=round(elapsed_ms, 3),
         )
     except ValueError as e:
-        logger.warning(f"Validation error in Dijkstra: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Algorithm error in Dijkstra: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Algorithm error: {str(e)}")
 
 
@@ -277,7 +263,6 @@ def run_dijkstra(request: DijkstraRequest):
 def run_astar(request: AStarRequest):
     """A* search with optional blocked edges for dynamic rerouting."""
     try:
-        logger.info(f"Running A*. Source: {request.source}, Dest: {request.destination}")
         blocked = None
         if request.blocked_edges:
             blocked = [(e[0], e[1]) for e in request.blocked_edges]
@@ -290,10 +275,8 @@ def run_astar(request: AStarRequest):
             execution_time_ms=round(elapsed_ms, 3),
         )
     except ValueError as e:
-        logger.warning(f"Validation error in A*: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Algorithm error in A*: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Algorithm error: {str(e)}")
 
 
@@ -301,7 +284,6 @@ def run_astar(request: AStarRequest):
 def run_knapsack(request: KnapsackRequest):
     """0/1 Knapsack optimization for cargo loading."""
     try:
-        logger.info(f"Running Knapsack. Capacity: {request.capacity}")
         items = request.items if request.items else CARGO_ITEMS
         start_time = time.perf_counter()
         result = knapsack_01(items, request.capacity)
@@ -312,7 +294,6 @@ def run_knapsack(request: KnapsackRequest):
             execution_time_ms=round(elapsed_ms, 3),
         )
     except Exception as e:
-        logger.error(f"Algorithm error in Knapsack: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Algorithm error: {str(e)}")
 
 
@@ -320,7 +301,6 @@ def run_knapsack(request: KnapsackRequest):
 def run_nearest_neighbour(request: TSPRequest):
     """Nearest Neighbour TSP heuristic."""
     try:
-        logger.info(f"Running Nearest Neighbour TSP. Start: {request.start}")
         start_time = time.perf_counter()
         result = nearest_neighbour_tsp(graph, request.start)
         elapsed_ms = (time.perf_counter() - start_time) * 1000
@@ -330,8 +310,6 @@ def run_nearest_neighbour(request: TSPRequest):
             execution_time_ms=round(elapsed_ms, 3),
         )
     except ValueError as e:
-        logger.warning(f"Validation error in Nearest Neighbour TSP: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Algorithm error in Nearest Neighbour TSP: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Algorithm error: {str(e)}")
